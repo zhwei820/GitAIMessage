@@ -9,8 +9,6 @@
   "configuration.title": "Git AI Message",
   "setting.apiBaseUrl.description": "OpenAI API Base URL",
   "setting.model.description": "OpenAI モデル名",
-  "setting.language.description": "生成するコミットメッセージの言語",
-  "setting.language.default": "ja",
   "setting.additionalInstructions.description": "プロンプトに追加する指示（最優先）",
   "setting.formatInstruction.description": "生成するコミットメッセージの形式指定（最優先・自由形式）。例: 箇条書きのみ、タイトル+詳細、など。",
   "setting.additionalInstructions.default": "修正内容の本質を理解すること",

@@ -9,8 +9,6 @@
   "configuration.title": "Git AI Message",
   "setting.apiBaseUrl.description": "OpenAI API base URL",
   "setting.model.description": "OpenAI model name",
-  "setting.language.description": "Language for generated commit message",
-  "setting.language.default": "en",
   "setting.additionalInstructions.description": "Additional instructions (highest priority)",
   "setting.formatInstruction.description": "Output format instruction (highest priority, free-form). Example: bullets only, or title + details.",
   "setting.additionalInstructions.default": "Understand the essence of the changes.",

@@ -6,12 +6,9 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const t = vscode.l10n.t;
 
-type SupportedLanguage = 'ja' | 'en';
-
 type ExtensionConfig = {
 	apiBaseUrl: string;
 	model: string;
-	language: SupportedLanguage;
 	additionalInstructions: string;
 	formatInstruction: string;
 	maxDiffChars: number;
@@ -63,13 +60,9 @@ function getConfig(): ExtensionConfig {
 		return cfg.get<T>(key, defaultValue);
 	};
 
-	const language = getValue<string>('language', 'ja');
-	const normalizedLanguage: SupportedLanguage = language === 'en' ? 'en' : 'ja';
-
 	return {
 		apiBaseUrl: getValue<string>('apiBaseUrl', 'https://api.openai.com/v1'),
 		model: getValue<string>('model', 'gpt-5.1'),
-		language: normalizedLanguage,
 		additionalInstructions: getValue<string>('additionalInstructions', ''),
 		formatInstruction: getValue<string>('formatInstruction', ''),
 		maxDiffChars: getValue<number>('maxDiffChars', 12000),
@@ -173,13 +166,12 @@ function truncateWithNotice(text: string, maxChars: number): string {
 }
 
 function buildPrompt(params: {
-	language: SupportedLanguage;
 	additionalInstructions: string;
 	formatInstruction: string;
 	stagedSummary: string;
 	stagedDiff: string;
 }): { system: string; user: string } {
-	const lang = params.language === 'en' ? 'English' : 'Japanese';
+	const lang = vscode.env.language.toLowerCase().startsWith('ja') ? 'Japanese' : 'English';
 
 	const format = params.formatInstruction.trim() ? params.formatInstruction.trim() : '';
 	const extra = params.additionalInstructions.trim() ? params.additionalInstructions.trim() : '';
@@ -191,7 +183,7 @@ function buildPrompt(params: {
 		? [
 				'You generate a Git commit message from staged changes.',
 				'Follow the output format instruction EXACTLY. If it conflicts with other guidelines, the output format instruction wins.',
-				`Default language is ${lang} unless the output format instruction specifies otherwise.`,
+				`Write in ${lang} unless the output format instruction specifies otherwise.`,
 				format,
 				'Do not include code fences. Do not wrap in quotes.',
 				'Output ONLY the commit message text.',
@@ -514,7 +506,6 @@ async function generateCommitMessageFromStaged(context: vscode.ExtensionContext)
 
 			const stagedDiff = truncateWithNotice(stagedDiffRaw, cfg.maxDiffChars);
 			const { system, user } = buildPrompt({
-				language: cfg.language,
 				additionalInstructions: cfg.additionalInstructions,
 				formatInstruction: cfg.formatInstruction,
 				stagedSummary,

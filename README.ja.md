@@ -8,7 +8,7 @@ English README: `README.md`
 
 - 対象は **ステージ済みの変更のみ**（`git diff --cached`）
 - コミット入力欄に **そのまま貼り付け**（コミット自体は行いません）
-- 出力言語は `ja` / `en` に対応
+- 生成言語は VS Code の表示言語に追従（`vscode.env.language` が `ja` で始まる場合は日本語、それ以外は英語）。ただし出力形式指定で言語が明示されている場合はそちらが優先されます
 - 出力フォーマットを自由に指定可能（例: Conventional Commits / 箇条書きのみ など）
 - 生成後通知でトークン数／料金目安を表示（任意）
 
@@ -50,7 +50,6 @@ VS Code の Settings で `gitAIMessage.*` を編集します。
 | --- | --- | --- |
 | `gitAIMessage.apiBaseUrl` | OpenAI API Base URL | `https://api.openai.com/v1` |
 | `gitAIMessage.model` | 使用するモデル名 | `gpt-5.1` |
-| `gitAIMessage.language` | 生成言語 | `ja` |
 | `gitAIMessage.additionalInstructions` | 追加指示（プロンプトに追記） | （ローカライズ既定） |
 | `gitAIMessage.formatInstruction` | 出力形式指定（最優先） | （ローカライズ既定） |
 | `gitAIMessage.maxDiffChars` | 解析する差分の最大文字数 | `12000` |

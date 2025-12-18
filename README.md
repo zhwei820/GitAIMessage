@@ -2,13 +2,13 @@
 
 Generate commit messages from staged changes via the OpenAI API (Responses API) and automatically fill the VS Code Git commit input box.
 
-日本語README: `README.ja.md`
+日本語README: [README.ja.md](README.ja.md)
 
 ## Features
 
 - Uses **staged changes only** (`git diff --cached`)
 - Fills the Git commit input box (it **does not** run `git commit`)
-- Supports output language: `en` / `ja`
+- Output language follows VS Code UI language (Japanese if `vscode.env.language` starts with `ja`, otherwise English), unless your format instruction specifies otherwise
 - Fully customizable output format (e.g., Conventional Commits, bullets-only, etc.)
 - Optional notification showing token usage and estimated cost
 
@@ -50,7 +50,6 @@ Edit `gitAIMessage.*` in VS Code Settings.
 | --- | --- | --- |
 | `gitAIMessage.apiBaseUrl` | OpenAI API base URL | `https://api.openai.com/v1` |
 | `gitAIMessage.model` | Model name | `gpt-5.1` |
-| `gitAIMessage.language` | Output language | `en` |
 | `gitAIMessage.additionalInstructions` | Extra instruction (high priority) | (localized default) |
 | `gitAIMessage.formatInstruction` | Output format (highest priority) | (localized default) |
 | `gitAIMessage.maxDiffChars` | Max staged diff chars to analyze | `12000` |

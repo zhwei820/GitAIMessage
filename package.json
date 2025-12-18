@@ -70,15 +70,6 @@
           "default": "gpt-5.1",
           "description": "%setting.model.description%"
         },
-        "gitAIMessage.language": {
-          "type": "string",
-          "enum": [
-            "ja",
-            "en"
-          ],
-          "default": "%setting.language.default%",
-          "description": "%setting.language.description%"
-        },
         "gitAIMessage.additionalInstructions": {
           "type": "string",
           "default": "%setting.additionalInstructions.default%",
