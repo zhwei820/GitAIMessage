@@ -5,6 +5,14 @@
   "version": "0.0.1",
   "publisher": "EXCEEDSYSTEM",
   "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exceedsystem/GitAIMessage.git"
+  },
+  "homepage": "https://github.com/exceedsystem/GitAIMessage",
+  "bugs": {
+    "url": "https://github.com/exceedsystem/GitAIMessage/issues"
+  },
   "extensionDependencies": [
     "vscode.git"
   ],
