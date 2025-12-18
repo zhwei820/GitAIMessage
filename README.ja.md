@@ -89,3 +89,7 @@ VS Code の Settings で `gitAIMessage.*` を編集します。
 - `pnpm install`
 - `pnpm run compile`（型チェック + lint + build）
 - `pnpm run package`（本番ビルド）
+
+## ライセンス
+
+GPL-3.0-only（GPLv3）。詳細は `LICENSE` を参照してください。

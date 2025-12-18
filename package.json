@@ -4,6 +4,7 @@
   "description": "%extension.description%",
   "version": "0.0.1",
   "publisher": "EXCEEDSYSTEM",
+  "license": "GPL-3.0-only",
   "extensionDependencies": [
     "vscode.git"
   ],

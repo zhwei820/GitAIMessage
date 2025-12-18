@@ -89,3 +89,7 @@ Examples:
 - `pnpm install`
 - `pnpm run compile` (typecheck + lint + build)
 - `pnpm run package` (production build)
+
+## License
+
+GPL-3.0-only. See `LICENSE`.
