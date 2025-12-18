@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      vscode-nls:
-        specifier: ^5.2.0
-        version: 5.2.0
     devDependencies:
       '@types/mocha':
         specifier: ^10.0.10
@@ -2318,9 +2314,6 @@ packages:
   version-range@4.15.0:
     resolution: {integrity: sha512-Ck0EJbAGxHwprkzFO966t4/5QkRuzh+/I1RxhLgUKKwEn+Cd8NwM60mE3AqBZg5gYODoXW0EFsQvbZjRlvdqbg==}
     engines: {node: '>=4'}
-
-  vscode-nls@5.2.0:
-    resolution: {integrity: sha512-RAaHx7B14ZU04EU31pT+rKz2/zSl7xMsfIZuo8pd+KZO6PXtQmpevpq3vxvWNcrGbdmhM/rr5Uw5Mz+NBfhVng==}
 
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
@@ -5010,8 +5003,6 @@ snapshots:
       spdx-expression-parse: 3.0.1
 
   version-range@4.15.0: {}
-
-  vscode-nls@5.2.0: {}
 
   whatwg-encoding@3.1.1:
     dependencies:
