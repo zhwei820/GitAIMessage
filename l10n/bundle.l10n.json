@@ -19,6 +19,7 @@
   "OpenAI API Key is not set.": "OpenAI API Key is not set.",
   "Generating commit message from staged changes…": "Generating commit message from staged changes…",
   "No staged changes found (git diff --cached is empty).": "No staged changes found (git diff --cached is empty).",
+  "Git CLI not found. Install Git or make sure the `git` command is available in PATH.": "Git CLI not found. Install Git or make sure the `git` command is available in PATH.",
   "Generated commit message is empty.": "Generated commit message is empty.",
   "Could not apply the commit message to Git commit input. Make sure the built-in Git extension (vscode.git) is enabled.": "Could not apply the commit message to Git commit input. Make sure the built-in Git extension (vscode.git) is enabled.",
   "Commit message generated ({0}).": "Commit message generated ({0}).",

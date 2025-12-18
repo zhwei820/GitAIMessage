@@ -23,6 +23,7 @@
   "OpenAI API Key is not set.": "OpenAI API Key が未設定です。",
   "Generating commit message from staged changes\u2026": "ステージ済み差分からコミットメッセージを生成中…",
   "No staged changes found (git diff --cached is empty).": "ステージ済みの変更が見つかりません（git diff --cached が空）。",
+  "Git CLI not found. Install Git or make sure the `git` command is available in PATH.": "Git（CLI）が見つかりません。Git をインストールするか、`git` コマンドが PATH で利用できることを確認してください。",
   "Generated commit message is empty.": "コミットメッセージが空でした。",
   "Could not apply the commit message to Git commit input. Make sure the built-in Git extension (vscode.git) is enabled.": "Git のコミット入力欄に反映できませんでした。Git 拡張（vscode.git）が無効化されていないか確認してください。",
   "Commit message generated ({0}).": "コミットメッセージを生成しました（{0}）。",

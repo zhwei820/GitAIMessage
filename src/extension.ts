@@ -29,6 +29,9 @@ function getConfig(): ExtensionConfig {
 	const legacyCfg2 = vscode.workspace.getConfiguration('genCommitLog');
 
 	const getValue = <T>(key: string, defaultValue: T): T => {
+		// Prefer the new namespace, but only if the user actually set a value.
+		// Using `inspect()` avoids treating the contributed default value as "user config",
+		// which lets us fall back to legacy namespaces when needed for migrations.
 		const inspectedNew = cfg.inspect<T>(key);
 		const newUserSet =
 			inspectedNew?.workspaceValue !== undefined ||
@@ -80,12 +83,24 @@ function getConfig(): ExtensionConfig {
 }
 
 async function runGit(args: string[], cwd: string): Promise<{ stdout: string; stderr: string }> {
-	// diff が大きい場合があるためバッファを拡張
-	const { stdout, stderr } = await execFileAsync('git', args, {
-		cwd,
-		maxBuffer: 10 * 1024 * 1024,
-	});
-	return { stdout: stdout.toString(), stderr: stderr.toString() };
+	// Increase buffer because diffs can be large.
+	try {
+		const { stdout, stderr } = await execFileAsync('git', args, {
+			cwd,
+			maxBuffer: 10 * 1024 * 1024,
+		});
+		return { stdout: stdout.toString(), stderr: stderr.toString() };
+	} catch (err) {
+		const anyErr = err as NodeJS.ErrnoException | undefined;
+		if (anyErr?.code === 'ENOENT') {
+			// The `git` executable is not available (not installed, not in PATH, etc.).
+			// Surface a clear, localized message instead of a raw Node.js spawn error.
+			throw new Error(
+				t('Git CLI not found. Install Git or make sure the `git` command is available in PATH.'),
+			);
+		}
+		throw err;
+	}
 }
 
 async function getGitRoot(workspacePath: string): Promise<string> {
@@ -120,7 +135,7 @@ async function setGitScmInputBoxValue(gitRoot: string, value: string): Promise<b
 	try {
 		await gitExt.activate();
 	} catch {
-		// ignore
+		// If activation fails, we fall back to best-effort behavior and let the caller show an error.
 	}
 
 	const api = (gitExt.exports as any)?.getAPI?.(1);
@@ -130,6 +145,8 @@ async function setGitScmInputBoxValue(gitRoot: string, value: string): Promise<b
 	}
 
 	const root = normalizeFsPath(gitRoot);
+	// Select the repository matching the workspace's git root. If not found, fall back to the first repo
+	// because VS Code can host multiple repositories in a single workspace.
 	const repo =
 		repos.find((r: any) => r?.rootUri?.fsPath && normalizeFsPath(r.rootUri.fsPath) === root) ?? repos[0];
 
@@ -168,6 +185,8 @@ function buildPrompt(params: {
 	const extra = params.additionalInstructions.trim() ? params.additionalInstructions.trim() : '';
 
 	const hasFormatInstruction = format.length > 0;
+	// If a format instruction is provided, we treat it as the highest priority and avoid prescribing
+	// additional structure (like "subject only") that could conflict with the requested format.
 	const system = hasFormatInstruction
 		? [
 				'You generate a Git commit message from staged changes.',
@@ -226,10 +245,12 @@ function extractOutputText(responseJson: unknown): string {
 	}
 	const anyJson = responseJson as any;
 
+	// Responses API convenience field.
 	if (typeof anyJson.output_text === 'string') {
 		return anyJson.output_text;
 	}
 
+	// Responses API structured output: concatenate all output_text parts.
 	const output = anyJson.output;
 	if (!Array.isArray(output)) {
 		return '';
@@ -266,12 +287,12 @@ function extractUsage(responseJson: unknown): OpenAIUsage | undefined {
 		return undefined;
 	}
 
-	// Responses API
+	// Prefer Responses API token fields when available.
 	const inputTokens = isNumber(usage.input_tokens) ? usage.input_tokens : undefined;
 	const outputTokens = isNumber(usage.output_tokens) ? usage.output_tokens : undefined;
 	const totalTokens = isNumber(usage.total_tokens) ? usage.total_tokens : undefined;
 
-	// Chat Completions API compatibility
+	// Backward-compatible fields (some proxies/gateways still use Chat Completions naming).
 	const promptTokens = isNumber(usage.prompt_tokens) ? usage.prompt_tokens : undefined;
 	const completionTokens = isNumber(usage.completion_tokens) ? usage.completion_tokens : undefined;
 
@@ -296,6 +317,7 @@ async function callOpenAIResponses(params: {
 		throw new Error(t('fetch is not available in this extension host environment.'));
 	}
 
+	// Use OpenAI Responses API. `store: false` requests no data retention by default (account/org policies may still apply).
 	const url = `${params.apiBaseUrl.replace(/\/+$/, '')}/responses`;
 	const body = {
 		model: params.model,
@@ -328,7 +350,7 @@ async function callOpenAIResponses(params: {
 	try {
 		json = JSON.parse(text);
 	} catch {
-		// ignore
+		// If the response isn't JSON, we still surface a best-effort error message below.
 	}
 
 	if (!res.ok) {
@@ -354,6 +376,7 @@ async function getApiKey(context: vscode.ExtensionContext): Promise<string | nul
 	const oldKey1 = 'gitGenComment.openaiApiKey';
 	const oldKey2 = 'genCommitLog.openaiApiKey';
 
+	// Read from the current key first, then migrate from legacy keys if present.
 	const fromNew = await context.secrets.get(newKey);
 	if (fromNew?.trim()) {
 		return fromNew.trim();
@@ -361,7 +384,7 @@ async function getApiKey(context: vscode.ExtensionContext): Promise<string | nul
 
 	const fromOld1 = await context.secrets.get(oldKey1);
 	if (fromOld1?.trim()) {
-		// 自動移行
+		// Automatic migration from legacy key.
 		await context.secrets.store(newKey, fromOld1.trim());
 		await context.secrets.delete(oldKey1);
 		return fromOld1.trim();
@@ -526,10 +549,10 @@ async function generateCommitMessageFromStaged(context: vscode.ExtensionContext)
 
 			await vscode.commands.executeCommand('workbench.view.scm');
 			try {
-				await vscode.commands.executeCommand('workbench.scm.action.focusInput');
-			} catch {
-				// ignore
-			}
+			await vscode.commands.executeCommand('workbench.scm.action.focusInput');
+		} catch {
+			// This command isn't available in all VS Code builds; failing to focus is non-fatal.
+		}
 			const usageText = formatUsageAndCost(cfg, result.usage);
 			vscode.window.showInformationMessage(
 				usageText
