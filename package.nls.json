@@ -1,6 +1,6 @@
 {
   "extension.displayName": "Git AI Message",
-  "extension.description": "Generate a commit message from staged changes using OpenAI API and fill the VS Code Git commit input box.",
+  "extension.description": "An extension that generates Git commit messages with AI.",
 
   "command.generateFromStaged.title": "Git AI Message: Generate commit message from staged changes",
   "command.setOpenAIApiKey.title": "Git AI Message: Set OpenAI API Key",

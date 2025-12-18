@@ -1,6 +1,6 @@
 {
   "extension.displayName": "Git AI Message",
-  "extension.description": "ステージ済み差分から OpenAI API でコミットメッセージを生成し、VS Code の Git コミット入力欄に反映します。",
+  "extension.description": "AIでGitのコミットメッセージを生成する拡張",
 
   "command.generateFromStaged.title": "Git AI Message: ステージ差分からコミットメッセージ生成",
   "command.setOpenAIApiKey.title": "Git AI Message: OpenAI API Key を設定",
