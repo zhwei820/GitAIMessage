@@ -1,0 +1,154 @@
+{
+  "name": "git-ai-message",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
+  "version": "0.0.1",
+  "publisher": "EXCEEDSYSTEM",
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "engines": {
+    "vscode": "^1.107.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:git-ai-message.generateFromStaged",
+    "onCommand:git-ai-message.setOpenAIApiKey",
+    "onCommand:git-ai-message.deleteOpenAIApiKey"
+  ],
+  "main": "./dist/extension.js",
+  "l10n": "./l10n",
+  "contributes": {
+    "commands": [
+      {
+        "command": "git-ai-message.generateFromStaged",
+        "title": "%command.generateFromStaged.title%",
+        "icon": {
+          "light": "resources/light/sparkle.svg",
+          "dark": "resources/dark/sparkle.svg"
+        }
+      },
+      {
+        "command": "git-ai-message.setOpenAIApiKey",
+        "title": "%command.setOpenAIApiKey.title%"
+      },
+      {
+        "command": "git-ai-message.deleteOpenAIApiKey",
+        "title": "%command.deleteOpenAIApiKey.title%"
+      }
+    ],
+    "menus": {
+      "scm/title": [
+        {
+          "command": "git-ai-message.generateFromStaged",
+          "group": "navigation@10",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "gitAIMessage.apiBaseUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "description": "%setting.apiBaseUrl.description%"
+        },
+        "gitAIMessage.model": {
+          "type": "string",
+          "default": "gpt-5.1",
+          "description": "%setting.model.description%"
+        },
+        "gitAIMessage.language": {
+          "type": "string",
+          "enum": [
+            "ja",
+            "en"
+          ],
+          "default": "%setting.language.default%",
+          "description": "%setting.language.description%"
+        },
+        "gitAIMessage.additionalInstructions": {
+          "type": "string",
+          "default": "%setting.additionalInstructions.default%",
+          "description": "%setting.additionalInstructions.description%"
+        },
+        "gitAIMessage.formatInstruction": {
+          "type": "string",
+          "default": "%setting.formatInstruction.default%",
+          "description": "%setting.formatInstruction.description%"
+        },
+        "gitAIMessage.maxDiffChars": {
+          "type": "number",
+          "default": 12000,
+          "minimum": 0,
+          "description": "%setting.maxDiffChars.description%"
+        },
+        "gitAIMessage.temperature": {
+          "type": "number",
+          "default": 0.2,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "%setting.temperature.description%"
+        },
+        "gitAIMessage.maxOutputTokens": {
+          "type": "number",
+          "default": 200,
+          "minimum": 16,
+          "description": "%setting.maxOutputTokens.description%"
+        },
+        "gitAIMessage.showUsageInNotification": {
+          "type": "boolean",
+          "default": true,
+          "description": "%setting.showUsageInNotification.description%"
+        },
+        "gitAIMessage.currency": {
+          "type": "string",
+          "default": "USD",
+          "description": "%setting.currency.description%"
+        },
+        "gitAIMessage.priceInputPer1M": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "%setting.priceInputPer1M.description%"
+        },
+        "gitAIMessage.priceOutputPer1M": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "%setting.priceOutputPer1M.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run package",
+    "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.107.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.27.1",
+    "eslint": "^9.39.1",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.1"
+  }
+}

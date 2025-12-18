@@ -1,0 +1,55 @@
+{
+  "extension.displayName": "Git AI Message",
+  "extension.description": "ステージ済み差分から OpenAI API でコミットメッセージを生成し、VS Code の Git コミット入力欄に反映します。",
+
+  "command.generateFromStaged.title": "Git AI Message: ステージ差分からコミットメッセージ生成",
+  "command.setOpenAIApiKey.title": "Git AI Message: OpenAI API Key を設定",
+  "command.deleteOpenAIApiKey.title": "Git AI Message: OpenAI API Key を削除",
+
+  "configuration.title": "Git AI Message",
+  "setting.apiBaseUrl.description": "OpenAI API Base URL",
+  "setting.model.description": "OpenAI モデル名",
+  "setting.language.description": "生成するコミットメッセージの言語",
+  "setting.language.default": "ja",
+  "setting.additionalInstructions.description": "プロンプトに追加する指示（最優先）",
+  "setting.formatInstruction.description": "生成するコミットメッセージの形式指定（最優先・自由形式）。例: 箇条書きのみ、タイトル+詳細、など。",
+  "setting.additionalInstructions.default": "修正内容の本質を理解すること",
+  "setting.formatInstruction.default": "各修正内容をプレフィックス「・」で端的なリスト形式で出力する",
+  "setting.maxDiffChars.description": "解析するステージ差分の最大文字数（超過分は切り捨て）",
+  "setting.temperature.description": "生成のランダム性（0〜2）",
+  "setting.maxOutputTokens.description": "出力トークン上限",
+  "setting.showUsageInNotification.description": "生成後の通知にトークン数/料金目安を表示する",
+  "setting.currency.description": "料金表示の通貨（表示用）",
+  "setting.priceInputPer1M.description": "入力トークン単価（1M tokens あたり）。例: 5 = 1M tokens あたり USD 5",
+  "setting.priceOutputPer1M.description": "出力トークン単価（1M tokens あたり）。例: 15 = 1M tokens あたり USD 15",
+
+  "action.set": "設定する",
+  "action.delete": "削除する",
+
+  "input.apiKeyTitle": "Git AI Message: OpenAI API Key を設定",
+  "input.apiKeyPrompt": "OpenAI API Key を入力してください（Secret Storage に保存されます）",
+
+  "error.workspaceNotFound": "ワークスペースが見つかりません。",
+  "error.fetchUnavailable": "この拡張の実行環境で fetch が利用できません。",
+  "error.openaiApi": "OpenAI API エラー: {0}",
+  "error.openaiNoOutput": "OpenAI API からコミットメッセージを抽出できませんでした。",
+  "error.commitMessageEmpty": "コミットメッセージが空でした。",
+  "error.gitCommitInputUnavailable": "Git のコミット入力欄に反映できませんでした。Git 拡張（vscode.git）が無効化されていないか確認してください。",
+
+  "warn.apiKeyNotSet": "OpenAI API Key が未設定です。",
+  "warn.apiKeyEmptyNotSaved": "API Key が空のため保存しませんでした。",
+  "warn.noStagedChanges": "ステージ済みの変更が見つかりません（git diff --cached が空）。",
+  "info.apiKeySaved": "OpenAI API Key を保存しました。",
+  "info.apiKeyNotStored": "保存済みの OpenAI API Key はありません。",
+  "confirm.deleteApiKey": "保存済みの OpenAI API Key を削除します。よろしいですか？",
+  "info.apiKeyDeleted": "OpenAI API Key を削除しました。",
+
+  "progress.generating": "ステージ済み差分からコミットメッセージを生成中…",
+  "info.commitGenerated": "コミットメッセージを生成しました。",
+  "info.commitGeneratedWithUsage": "コミットメッセージを生成しました（{0}）。",
+
+  "usage.tokens": "トークン: 入力 {0} / 出力 {1}（合計 {2}）",
+  "usage.estimatedCost": "料金目安: {0} {1}",
+  "usage.estimatedCostUsageUnavailable": "料金目安: （usage が取得できませんでした）",
+  "usage.estimatedCostTooSmall": "料金目安: {0} <0.001"
+}
