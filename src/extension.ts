@@ -75,25 +75,68 @@ function getConfig(): ExtensionConfig {
 	};
 }
 
+function getGitExecutableCandidates(): string[] {
+	const gitConfig = vscode.workspace.getConfiguration('git');
+	const configured = gitConfig.get<string | string[]>('path');
+	const normalizeCandidate = (value: string) => value.trim().replace(/^"(.*)"$/, '$1');
+	const candidates: string[] = [];
+
+	if (Array.isArray(configured)) {
+		for (const value of configured) {
+			if (typeof value === 'string' && value.trim()) {
+				candidates.push(normalizeCandidate(value));
+			}
+		}
+	} else if (typeof configured === 'string' && configured.trim()) {
+		candidates.push(normalizeCandidate(configured));
+	}
+
+	candidates.push('git');
+
+	const seen = new Set<string>();
+	const unique: string[] = [];
+	for (const candidate of candidates) {
+		const key = process.platform === 'win32' ? candidate.toLowerCase() : candidate;
+		if (!seen.has(key)) {
+			seen.add(key);
+			unique.push(candidate);
+		}
+	}
+
+	return unique;
+}
+
 async function runGit(args: string[], cwd: string): Promise<{ stdout: string; stderr: string }> {
 	// Increase buffer because diffs can be large.
-	try {
-		const { stdout, stderr } = await execFileAsync('git', args, {
-			cwd,
-			maxBuffer: 10 * 1024 * 1024,
-		});
-		return { stdout: stdout.toString(), stderr: stderr.toString() };
-	} catch (err) {
-		const anyErr = err as NodeJS.ErrnoException | undefined;
-		if (anyErr?.code === 'ENOENT') {
-			// The `git` executable is not available (not installed, not in PATH, etc.).
-			// Surface a clear, localized message instead of a raw Node.js spawn error.
-			throw new Error(
-				t('Git CLI not found. Install Git or make sure the `git` command is available in PATH.'),
-			);
+	const candidates = getGitExecutableCandidates();
+	let lastErr: unknown;
+
+	for (const gitExecutable of candidates) {
+		try {
+			const { stdout, stderr } = await execFileAsync(gitExecutable, args, {
+				cwd,
+				maxBuffer: 10 * 1024 * 1024,
+			});
+			return { stdout: stdout.toString(), stderr: stderr.toString() };
+		} catch (err) {
+			const anyErr = err as NodeJS.ErrnoException | undefined;
+			if (anyErr?.code === 'ENOENT') {
+				lastErr = err;
+				continue;
+			}
+			throw err;
 		}
-		throw err;
 	}
+
+	if ((lastErr as NodeJS.ErrnoException | undefined)?.code === 'ENOENT') {
+		// The `git` executable is not available (not installed, not in PATH, etc.).
+		// Surface a clear, localized message instead of a raw Node.js spawn error.
+		throw new Error(
+			t('Git CLI not found. Install Git or make sure the `git` command is available in PATH.'),
+		);
+	}
+
+	throw lastErr;
 }
 
 async function getGitRoot(workspacePath: string): Promise<string> {
@@ -116,7 +159,8 @@ type GitExtension = {
 };
 
 function normalizeFsPath(p: string): string {
-	return path.resolve(p);
+	const resolved = path.resolve(p);
+	return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
 async function setGitScmInputBoxValue(gitRoot: string, value: string): Promise<boolean> {
@@ -181,21 +225,21 @@ function buildPrompt(params: {
 	// additional structure (like "subject only") that could conflict with the requested format.
 	const system = hasFormatInstruction
 		? [
-				'You generate a Git commit message from staged changes.',
-				'Follow the output format instruction EXACTLY. If it conflicts with other guidelines, the output format instruction wins.',
-				`Write in ${lang} unless the output format instruction specifies otherwise.`,
-				format,
-				'Do not include code fences. Do not wrap in quotes.',
-				'Output ONLY the commit message text.',
-			].join('\n')
+			'You generate a Git commit message from staged changes.',
+			'Follow the output format instruction EXACTLY. If it conflicts with other guidelines, the output format instruction wins.',
+			`Write in ${lang} unless the output format instruction specifies otherwise.`,
+			format,
+			'Do not include code fences. Do not wrap in quotes.',
+			'Output ONLY the commit message text.',
+		].join('\n')
 		: [
-				'You generate a Git commit message from staged changes.',
-				`Write in ${lang}.`,
-				'Output only a single-line subject (no body).',
-				'Subject should be concise (ideally <= 72 characters).',
-				'Do not include code fences. Do not wrap in quotes.',
-				'Output ONLY the commit message text.',
-			].join('\n');
+			'You generate a Git commit message from staged changes.',
+			`Write in ${lang}.`,
+			'Output only a single-line subject (no body).',
+			'Subject should be concise (ideally <= 72 characters).',
+			'Do not include code fences. Do not wrap in quotes.',
+			'Output ONLY the commit message text.',
+		].join('\n');
 
 	const user = [
 		extra,
@@ -540,10 +584,10 @@ async function generateCommitMessageFromStaged(context: vscode.ExtensionContext)
 
 			await vscode.commands.executeCommand('workbench.view.scm');
 			try {
-			await vscode.commands.executeCommand('workbench.scm.action.focusInput');
-		} catch {
-			// This command isn't available in all VS Code builds; failing to focus is non-fatal.
-		}
+				await vscode.commands.executeCommand('workbench.scm.action.focusInput');
+			} catch {
+				// This command isn't available in all VS Code builds; failing to focus is non-fatal.
+			}
 			const usageText = formatUsageAndCost(cfg, result.usage);
 			vscode.window.showInformationMessage(
 				usageText
@@ -589,4 +633,4 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 }
 
-export function deactivate() {}
+export function deactivate() { }
