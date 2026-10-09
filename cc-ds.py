@@ -37,6 +37,18 @@ MODEL_MAP = {
     "deepseek-chat": os.environ.get("CC_DS_MODEL", "sonnet"),
     "deepseek-reasoner": os.environ.get("CC_DS_REASONER", "opus"),
 }
+CLAUDE_ALIASES = ("sonnet", "opus", "haiku", "fable")
+
+
+def map_model(name):
+    """DeepSeek 名按 MODEL_MAP 映射；Claude 别名 / claude-* 透传；其余（gpt-4o 等客户端默认值）退回 deepseek-chat 的映射。"""
+    if name in MODEL_MAP:
+        return MODEL_MAP[name]
+    if name.startswith("claude-") or name in CLAUDE_ALIASES:
+        return name
+    return MODEL_MAP["deepseek-chat"]
+
+
 # 空目录作为 cwd，避免 claude 读到当前目录的 CLAUDE.md / 项目配置
 WORKDIR = tempfile.mkdtemp(prefix="cc-ds-")
 
@@ -232,7 +244,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             req_model = req.get("model") or "deepseek-chat"
-            claude_model = MODEL_MAP.get(req_model, req_model)  # 不在映射里的直接透传给 claude --model
+            claude_model = map_model(req_model)
             system, prompt = build_prompt(req.get("messages"))
             stream = bool(req.get("stream"))
             cmd = claude_cmd(claude_model, system, stream)
@@ -266,7 +278,7 @@ class Handler(BaseHTTPRequestHandler):
         if req.get("instructions") and isinstance(messages, list):
             messages = [{"role": "system", "content": req["instructions"]}] + messages
         req_model = req.get("model") or "deepseek-chat"
-        claude_model = MODEL_MAP.get(req_model, req_model)
+        claude_model = map_model(req_model)
         system, prompt = build_prompt(messages)
         cmd = claude_cmd(claude_model, system, False)
         log(f"{cid} model {req_model} -> {claude_model}, cmd: {shlex.join(cmd)}")
