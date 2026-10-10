@@ -61,7 +61,7 @@ function getConfig(): ExtensionConfig {
 	};
 
 	return {
-		apiBaseUrl: getValue<string>('apiBaseUrl', 'https://api.openai.com/v1'),
+		apiBaseUrl: getValue<string>('apiBaseUrl', 'http://127.0.0.1:8000'),
 		model: getValue<string>('model', 'gpt-5.1'),
 		additionalInstructions: getValue<string>('additionalInstructions', ''),
 		formatInstruction: getValue<string>('formatInstruction', ''),
@@ -341,7 +341,7 @@ function extractUsage(responseJson: unknown): OpenAIUsage | undefined {
 
 async function callOpenAIResponses(params: {
 	apiBaseUrl: string;
-	apiKey: string;
+	apiKey: string | null;
 	model: string;
 	system: string;
 	user: string;
@@ -375,7 +375,7 @@ async function callOpenAIResponses(params: {
 	const res = await fetchFn(url, {
 		method: 'POST',
 		headers: {
-			Authorization: `Bearer ${params.apiKey}`,
+			...(params.apiKey ? { Authorization: `Bearer ${params.apiKey}` } : {}),
 			'Content-Type': 'application/json',
 		},
 		body: JSON.stringify(body),
@@ -522,15 +522,8 @@ async function generateCommitMessageFromStaged(context: vscode.ExtensionContext)
 		return;
 	}
 
+	// Optional: local proxies such as cc-ds.py accept requests without a key.
 	const apiKey = await getApiKey(context);
-	if (!apiKey) {
-		const setAction = t('Set');
-		const action = await vscode.window.showWarningMessage(t('OpenAI API Key is not set.'), setAction);
-		if (action === setAction) {
-			await setApiKey(context);
-		}
-		return;
-	}
 
 	await vscode.window.withProgress(
 		{

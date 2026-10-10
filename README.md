@@ -16,7 +16,7 @@ Generate commit messages from staged changes via the OpenAI API (Responses API) 
 
 - VS Code (extension engine: `^1.107.0`)
 - Built-in Git extension enabled (`vscode.git`)
-- OpenAI API key (**required** to generate messages)
+- OpenAI API key (optional; sent only when set — not needed for a local proxy at the default base URL)
 
 ## Installation
 
@@ -25,7 +25,7 @@ Generate commit messages from staged changes via the OpenAI API (Responses API) 
 
 ## Quick Start
 
-1. Run `Git AI Message: Set OpenAI API Key` to store your API key (saved in Secret Storage).
+1. (Optional, only if your endpoint requires a key) Run `Git AI Message: Set OpenAI API Key` to store your API key (saved in Secret Storage).
 2. Stage changes (`git add ...`).
 3. Generate a message using either:
    - Command Palette: `Git AI Message: Generate commit message from staged changes`
@@ -48,7 +48,7 @@ Edit `gitAIMessage.*` in VS Code Settings.
 
 | Setting | Purpose | Default |
 | --- | --- | --- |
-| `gitAIMessage.apiBaseUrl` | OpenAI API base URL | `https://api.openai.com/v1` |
+| `gitAIMessage.apiBaseUrl` | OpenAI API base URL | `http://127.0.0.1:8000` |
 | `gitAIMessage.model` | Model name | `gpt-5.1` |
 | `gitAIMessage.additionalInstructions` | Extra instruction (high priority) | (localized default) |
 | `gitAIMessage.formatInstruction` | Output format (highest priority) | (localized default) |

@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import shlex
+import signal
 import subprocess
 import tempfile
 import threading
@@ -360,11 +361,43 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
 
+def free_port(port):
+    """SIGTERM 占用 port 的监听进程，3 秒未退出则 SIGKILL。"""
+    out = subprocess.run(["lsof", "-t", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"],
+                         capture_output=True, text=True).stdout
+    pids = {int(p) for p in out.split()} - {os.getpid()}
+    for pid in pids:
+        name = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+        print(f"port {port} in use by pid {pid} ({name}), killing", flush=True)
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            continue
+    deadline = time.time() + 3
+    while pids and time.time() < deadline:
+        time.sleep(0.1)
+        pids = {p for p in pids if _alive(p)}
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def _alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
 def main():
     ap = argparse.ArgumentParser(description="DeepSeek-compatible API backed by Claude Code")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args()
+    free_port(args.port)
     print(f"cc-ds listening on http://{args.host}:{args.port}  models={MODEL_MAP}", flush=True)
     ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()
 

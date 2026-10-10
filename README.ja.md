@@ -16,7 +16,7 @@ English README: `README.md`
 
 - VS Code（拡張の対応バージョン: `^1.107.0`）
 - 組み込み Git 拡張（`vscode.git`）が有効
-- OpenAI API Key（未設定だと生成できません）
+- OpenAI API Key（任意。設定時のみ送信。既定の Base URL のローカルプロキシでは不要）
 
 ## インストール
 
@@ -25,7 +25,7 @@ English README: `README.md`
 
 ## クイックスタート
 
-1. コマンドパレットで `Git AI Message: OpenAI API Key を設定` を実行して API Key を登録します（Secret Storage に保存）。
+1. （エンドポイントがキーを要求する場合のみ）コマンドパレットで `Git AI Message: OpenAI API Key を設定` を実行して API Key を登録します（Secret Storage に保存）。
 2. 変更をステージします（`git add ...`）。
 3. 次のいずれかで生成します。
    - コマンドパレット: `Git AI Message: ステージ差分からコミットメッセージ生成`
@@ -48,7 +48,7 @@ VS Code の Settings で `gitAIMessage.*` を編集します。
 
 | 設定キー | 役割 | 既定値 |
 | --- | --- | --- |
-| `gitAIMessage.apiBaseUrl` | OpenAI API Base URL | `https://api.openai.com/v1` |
+| `gitAIMessage.apiBaseUrl` | OpenAI API Base URL | `http://127.0.0.1:8000` |
 | `gitAIMessage.model` | 使用するモデル名 | `gpt-5.1` |
 | `gitAIMessage.additionalInstructions` | 追加指示（プロンプトに追記） | （ローカライズ既定） |
 | `gitAIMessage.formatInstruction` | 出力形式指定（最優先） | （ローカライズ既定） |

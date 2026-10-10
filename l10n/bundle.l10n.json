@@ -15,8 +15,6 @@
   "Delete the saved OpenAI API Key?": "Delete the saved OpenAI API Key?",
   "OpenAI API Key deleted.": "OpenAI API Key deleted.",
   "No workspace folder found.": "No workspace folder found.",
-  "Set": "Set",
-  "OpenAI API Key is not set.": "OpenAI API Key is not set.",
   "Generating commit message from staged changes…": "Generating commit message from staged changes…",
   "No staged changes found (git diff --cached is empty).": "No staged changes found (git diff --cached is empty).",
   "Git CLI not found. Install Git or make sure the `git` command is available in PATH.": "Git CLI not found. Install Git or make sure the `git` command is available in PATH.",
