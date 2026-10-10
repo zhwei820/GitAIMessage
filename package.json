@@ -53,7 +53,7 @@
       "scm/title": [
         {
           "command": "git-ai-message.generateFromStaged",
-          "group": "navigation@10",
+          "group": "navigation@-1000",
           "when": "scmProvider == git"
         }
       ]
