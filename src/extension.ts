@@ -403,6 +403,12 @@ function extractOutputText(responseJson: unknown): string {
 		return anyJson.output_text;
 	}
 
+	// Chat Completions fallback.
+	const chatContent = anyJson.choices?.[0]?.message?.content;
+	if (typeof chatContent === 'string') {
+		return chatContent.trim();
+	}
+
 	// Responses API structured output: concatenate all output_text parts.
 	const output = anyJson.output;
 	if (!Array.isArray(output)) {
@@ -456,12 +462,133 @@ function extractUsage(responseJson: unknown): OpenAIUsage | undefined {
 	};
 }
 
+type RequestState = {
+	api: 'responses' | 'chat';
+	diffChars: number;
+	temperature?: number;
+	maxOutputTokens?: number;
+};
+
+type AttemptFailure = {
+	message: string;
+	// undefined: the request never got an HTTP response (network error, timeout).
+	status?: number;
+	retryAfterMs?: number;
+	// 200 OK with no text because the token limit was hit (reasoning models can spend it all before answering).
+	truncated?: boolean;
+};
+
+const MAX_ATTEMPTS = 6;
+const REQUEST_TIMEOUT_MS = 60_000;
+const MAX_RETRY_DELAY_MS = 20_000;
+const MAX_OUTPUT_TOKENS_CEILING = 4096;
+const MIN_DIFF_CHARS = 1000;
+
+function buildRequestBody(model: string, system: string, user: string, s: RequestState): unknown {
+	const temperature = s.temperature !== undefined ? { temperature: s.temperature } : {};
+	if (s.api === 'chat') {
+		return {
+			model,
+			...temperature,
+			...(s.maxOutputTokens !== undefined ? { max_tokens: s.maxOutputTokens } : {}),
+			messages: [
+				{ role: 'system', content: system },
+				{ role: 'user', content: user },
+			],
+		};
+	}
+	// `store: false` requests no data retention by default (account/org policies may still apply).
+	return {
+		model,
+		...temperature,
+		...(s.maxOutputTokens !== undefined ? { max_output_tokens: s.maxOutputTokens } : {}),
+		store: false,
+		input: [
+			{ role: 'system', content: [{ type: 'input_text', text: system }] },
+			{ role: 'user', content: [{ type: 'input_text', text: user }] },
+		],
+	};
+}
+
+function isTruncatedResponse(json: any): boolean {
+	return (
+		(json?.status === 'incomplete' && json?.incomplete_details?.reason === 'max_output_tokens') ||
+		json?.choices?.[0]?.finish_reason === 'length'
+	);
+}
+
+function parseRetryAfterMs(value: string | null): number | undefined {
+	if (!value) {
+		return undefined;
+	}
+	const seconds = Number(value);
+	if (Number.isFinite(seconds)) {
+		return seconds * 1000;
+	}
+	const date = Date.parse(value);
+	return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
+}
+
+// Returns the next request to try, or null when retrying cannot help. Each fix is derived from the
+// failure: drop a parameter the model rejects, shrink an oversized prompt, fall back to Chat
+// Completions when the endpoint has no /responses, raise a token limit that cut the answer off, or
+// back off on transient errors.
+function planRetry(
+	f: AttemptFailure,
+	s: RequestState,
+	attempt: number,
+): { state: RequestState; delayMs: number; reason: string } | null {
+	const msg = f.message.toLowerCase();
+
+	if (f.truncated) {
+		if (s.maxOutputTokens === undefined || s.maxOutputTokens >= MAX_OUTPUT_TOKENS_CEILING) {
+			return null;
+		}
+		const maxOutputTokens = Math.min(s.maxOutputTokens * 4, MAX_OUTPUT_TOKENS_CEILING);
+		return { state: { ...s, maxOutputTokens }, delayMs: 0, reason: `raise output token limit to ${maxOutputTokens}` };
+	}
+
+	if (f.status === 401 || f.status === 403 || msg.includes('quota')) {
+		return null;
+	}
+
+	if (f.status === 400 || f.status === 422) {
+		if (s.temperature !== undefined && msg.includes('temperature')) {
+			return { state: { ...s, temperature: undefined }, delayMs: 0, reason: 'drop temperature' };
+		}
+		if (s.maxOutputTokens !== undefined && /max_(output_|completion_)?tokens/.test(msg)) {
+			return { state: { ...s, maxOutputTokens: undefined }, delayMs: 0, reason: 'drop output token limit' };
+		}
+	}
+
+	if (f.status === 413 || /context|too long|too large|too many tokens|maximum.*tokens/.test(msg)) {
+		if (s.diffChars <= MIN_DIFF_CHARS) {
+			return null;
+		}
+		const diffChars = Math.max(MIN_DIFF_CHARS, Math.floor(s.diffChars / 2));
+		return { state: { ...s, diffChars }, delayMs: 0, reason: `shrink diff to ${diffChars} chars` };
+	}
+
+	if (s.api === 'responses' && (f.status === 404 || f.status === 405 || f.status === 501)) {
+		return { state: { ...s, api: 'chat' }, delayMs: 0, reason: 'fall back to /chat/completions' };
+	}
+
+	if (f.status === undefined || f.status === 408 || f.status === 409 || f.status === 429 || f.status >= 500) {
+		const backoff = 1000 * 2 ** (attempt - 1);
+		const delayMs = Math.min(f.retryAfterMs ?? backoff, MAX_RETRY_DELAY_MS);
+		return { state: s, delayMs, reason: `transient error, retry in ${delayMs} ms` };
+	}
+
+	return null;
+}
+
 async function callOpenAIResponses(params: {
 	apiBaseUrl: string;
 	apiKey: string | null;
 	model: string;
 	system: string;
-	user: string;
+	buildUser: (diffChars: number) => string;
+	diffChars: number;
 	temperature: number;
 	maxOutputTokens: number;
 }): Promise<{ text: string; usage?: OpenAIUsage }> {
@@ -470,58 +597,75 @@ async function callOpenAIResponses(params: {
 		throw new Error(t('fetch is not available in this extension host environment.'));
 	}
 
-	// Use OpenAI Responses API. `store: false` requests no data retention by default (account/org policies may still apply).
-	const url = `${params.apiBaseUrl.replace(/\/+$/, '')}/responses`;
-	const body = {
-		model: params.model,
+	const baseUrl = params.apiBaseUrl.replace(/\/+$/, '');
+	let state: RequestState = {
+		api: 'responses',
+		diffChars: params.diffChars,
 		temperature: params.temperature,
-		max_output_tokens: params.maxOutputTokens,
-		store: false,
-		input: [
-			{
-				role: 'system',
-				content: [{ type: 'input_text', text: params.system }],
-			},
-			{
-				role: 'user',
-				content: [{ type: 'input_text', text: params.user }],
-			},
-		],
+		maxOutputTokens: params.maxOutputTokens,
 	};
 
-	const res = await fetchFn(url, {
-		method: 'POST',
-		headers: {
-			...(params.apiKey ? { Authorization: `Bearer ${params.apiKey}` } : {}),
-			'Content-Type': 'application/json',
-		},
-		body: JSON.stringify(body),
-	});
+	for (let attempt = 1; ; attempt++) {
+		const url = `${baseUrl}/${state.api === 'chat' ? 'chat/completions' : 'responses'}`;
+		const body = buildRequestBody(params.model, params.system, params.buildUser(state.diffChars), state);
 
-	const text = await res.text();
-	let json: unknown = undefined;
-	try {
-		json = JSON.parse(text);
-	} catch {
-		// If the response isn't JSON, we still surface a best-effort error message below.
+		let failure: AttemptFailure;
+		try {
+			const res = await fetchFn(url, {
+				method: 'POST',
+				headers: {
+					...(params.apiKey ? { Authorization: `Bearer ${params.apiKey}` } : {}),
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(body),
+				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+			});
+
+			const text = await res.text();
+			let json: unknown = undefined;
+			try {
+				json = JSON.parse(text);
+			} catch {
+				// If the response isn't JSON, we still surface a best-effort error message below.
+			}
+
+			if (res.ok) {
+				const outputText = extractOutputText(json);
+				if (outputText) {
+					return { text: outputText, usage: extractUsage(json) };
+				}
+				failure = {
+					message: t('Could not extract a commit message from OpenAI API response.'),
+					status: res.status,
+					truncated: isTruncatedResponse(json),
+				};
+			} else {
+				failure = {
+					message:
+						(json as any)?.error?.message ||
+						(typeof text === 'string' && text.trim() ? text.trim() : `HTTP ${res.status}`),
+					status: res.status,
+					retryAfterMs: parseRetryAfterMs(res.headers?.get?.('retry-after') ?? null),
+				};
+			}
+		} catch (err) {
+			const e = err as Error & { cause?: { message?: string } };
+			failure = { message: e.cause?.message ? `${e.message} (${e.cause.message})` : String(e.message ?? err) };
+		}
+
+		const next = attempt < MAX_ATTEMPTS ? planRetry(failure, state, attempt) : null;
+		if (!next) {
+			if (failure.status !== undefined && failure.status < 300) {
+				throw new Error(failure.message);
+			}
+			throw new Error(t('OpenAI API error: {0}', failure.message));
+		}
+		console.warn(`[git-ai-message] attempt ${attempt} failed (${failure.status ?? 'network'}: ${failure.message}); ${next.reason}`);
+		if (next.delayMs > 0) {
+			await new Promise((resolve) => setTimeout(resolve, next.delayMs));
+		}
+		state = next.state;
 	}
-
-	if (!res.ok) {
-		const msg =
-			(json as any)?.error?.message ||
-			(typeof text === 'string' && text.trim() ? text.trim() : `HTTP ${res.status}`);
-		throw new Error(t('OpenAI API error: {0}', msg));
-	}
-
-	const outputText = extractOutputText(json);
-	if (!outputText) {
-		throw new Error(t('Could not extract a commit message from OpenAI API response.'));
-	}
-
-	return {
-		text: outputText,
-		usage: extractUsage(json),
-	};
 }
 
 async function getApiKey(context: vscode.ExtensionContext): Promise<string | null> {
@@ -651,20 +795,22 @@ async function generateCommitMessage(context: vscode.ExtensionContext, arg: unkn
 				return;
 			}
 
-			const { system, user } = buildPrompt({
-				additionalInstructions: cfg.additionalInstructions,
-				formatInstruction: cfg.formatInstruction,
-				source: changes.source,
-				summary: changes.summary,
-				diff: truncateWithNotice(changes.diff, cfg.maxDiffChars),
-			});
+			const prompt = (diffChars: number) =>
+				buildPrompt({
+					additionalInstructions: cfg.additionalInstructions,
+					formatInstruction: cfg.formatInstruction,
+					source: changes.source,
+					summary: changes.summary,
+					diff: truncateWithNotice(changes.diff, diffChars),
+				});
 
 			const result = await callOpenAIResponses({
 				apiBaseUrl: cfg.apiBaseUrl,
 				apiKey,
 				model: cfg.model,
-				system,
-				user,
+				system: prompt(cfg.maxDiffChars).system,
+				buildUser: (diffChars) => prompt(diffChars).user,
+				diffChars: Math.min(cfg.maxDiffChars, changes.diff.length),
 				temperature: cfg.temperature,
 				maxOutputTokens: cfg.maxOutputTokens,
 			});
