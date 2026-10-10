@@ -24,7 +24,9 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:git-ai-message.generateFromStaged",
+    "onCommand:git-ai-message.push",
     "onCommand:git-ai-message.setOpenAIApiKey",
     "onCommand:git-ai-message.deleteOpenAIApiKey"
   ],
@@ -38,6 +40,19 @@
         "icon": {
           "light": "resources/light/sparkle.svg",
           "dark": "resources/dark/sparkle.svg"
+        }
+      },
+      {
+        "command": "git-ai-message.push",
+        "title": "%command.push.title%",
+        "icon": "$(repo-push)"
+      },
+      {
+        "command": "git-ai-message.pushUnpushed",
+        "title": "%command.pushUnpushed.title%",
+        "icon": {
+          "light": "resources/light/push-pending.svg",
+          "dark": "resources/dark/push-pending.svg"
         }
       },
       {
@@ -55,6 +70,22 @@
           "command": "git-ai-message.generateFromStaged",
           "group": "navigation@-1000",
           "when": "scmProvider == git"
+        },
+        {
+          "command": "git-ai-message.push",
+          "group": "navigation@-999",
+          "when": "scmProvider == git && scmProviderRootUri not in gitAIMessage.unpushedRepos"
+        },
+        {
+          "command": "git-ai-message.pushUnpushed",
+          "group": "navigation@-999",
+          "when": "scmProvider == git && scmProviderRootUri in gitAIMessage.unpushedRepos"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "git-ai-message.pushUnpushed",
+          "when": "false"
         }
       ]
     },

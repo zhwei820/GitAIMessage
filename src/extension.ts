@@ -177,12 +177,18 @@ type GitRepository = {
 	rootUri: vscode.Uri;
 	inputBox: vscode.SourceControlInputBox;
 	ui?: { selected: boolean };
+	state: {
+		HEAD?: { ahead?: number };
+		onDidChange: vscode.Event<void>;
+	};
 };
 
 type GitAPI = {
 	state: 'uninitialized' | 'initialized';
 	onDidChangeState: vscode.Event<'uninitialized' | 'initialized'>;
 	repositories: GitRepository[];
+	onDidOpenRepository: vscode.Event<GitRepository>;
+	onDidCloseRepository: vscode.Event<GitRepository>;
 	getRepository(uri: vscode.Uri): GitRepository | null;
 };
 
@@ -251,6 +257,37 @@ async function resolveRepository(api: GitAPI, arg: unknown): Promise<GitReposito
 		{ placeHolder: t('Select a repository to generate a commit message for') },
 	);
 	return picked?.repo;
+}
+
+// Publishes the roots of repositories with commits ahead of upstream as a context key, so the SCM title
+// menu can swap in the highlighted push button via `scmProviderRootUri in gitAIMessage.unpushedRepos`.
+// The values must match scmProviderRootUri, which VS Code sets to the SourceControl's rootUri.toString().
+async function trackUnpushedCommits(context: vscode.ExtensionContext): Promise<void> {
+	const api = await getGitAPI();
+	const repoSubs = new Map<GitRepository, vscode.Disposable>();
+
+	const update = () => {
+		const roots = api.repositories.filter((r) => (r.state.HEAD?.ahead ?? 0) > 0).map((r) => r.rootUri.toString());
+		void vscode.commands.executeCommand('setContext', 'gitAIMessage.unpushedRepos', roots);
+	};
+	const watch = (repo: GitRepository) => {
+		repoSubs.set(repo, repo.state.onDidChange(update));
+	};
+
+	api.repositories.forEach(watch);
+	context.subscriptions.push(
+		api.onDidOpenRepository((repo) => {
+			watch(repo);
+			update();
+		}),
+		api.onDidCloseRepository((repo) => {
+			repoSubs.get(repo)?.dispose();
+			repoSubs.delete(repo);
+			update();
+		}),
+		{ dispose: () => repoSubs.forEach((sub) => sub.dispose()) },
+	);
+	update();
 }
 
 function truncateWithNotice(text: string, maxChars: number): string {
@@ -667,6 +704,22 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}),
 	);
+
+	// Forward the clicked SCM provider so vscode.git pushes that repository (or prompts when absent).
+	const push = async (arg?: unknown) => {
+		try {
+			await vscode.commands.executeCommand('git.push', arg);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			vscode.window.showErrorMessage(msg);
+		}
+	};
+	context.subscriptions.push(
+		vscode.commands.registerCommand('git-ai-message.push', push),
+		vscode.commands.registerCommand('git-ai-message.pushUnpushed', push),
+	);
+
+	trackUnpushedCommits(context).catch((err) => console.error('[git-ai-message] tracking unpushed commits failed:', err));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('git-ai-message.setOpenAIApiKey', async () => {
