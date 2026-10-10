@@ -263,6 +263,11 @@ function truncateWithNotice(text: string, maxChars: number): string {
 	return `${text.slice(0, maxChars)}\n\n[...truncated to ${maxChars} chars...]`;
 }
 
+// The model is asked for TARGET_MESSAGE_CHARS; MAX_MESSAGE_CHARS is enforced by truncation because
+// models do not count characters reliably. Both are counted in Unicode code points.
+const TARGET_MESSAGE_CHARS = 250;
+const MAX_MESSAGE_CHARS = 300;
+
 function buildPrompt(params: {
 	additionalInstructions: string;
 	formatInstruction: string;
@@ -282,6 +287,7 @@ function buildPrompt(params: {
 		? [
 			`You generate a Git commit message from ${params.source} changes.`,
 			'Follow the output format instruction EXACTLY. If it conflicts with other guidelines, the output format instruction wins.',
+			`Exception: regardless of the format instruction, the entire commit message must be at most ${TARGET_MESSAGE_CHARS} characters.`,
 			`Write in ${lang} unless the output format instruction specifies otherwise.`,
 			format,
 			'Do not include code fences. Do not wrap in quotes.',
@@ -292,6 +298,7 @@ function buildPrompt(params: {
 			`Write in ${lang}.`,
 			'Output only a single-line subject (no body).',
 			'Subject should be concise (ideally <= 72 characters).',
+			`The entire commit message must be at most ${TARGET_MESSAGE_CHARS} characters.`,
 			'Do not include code fences. Do not wrap in quotes.',
 			'Output ONLY the commit message text.',
 		].join('\n');
@@ -312,6 +319,23 @@ function buildPrompt(params: {
 		system,
 		user,
 	};
+}
+
+// Cuts at the last line break, else the last whitespace, within the limit; falls back to a hard cut
+// (e.g. CJK text without spaces) when that boundary would drop more than the target/max gap.
+function clampCommitMessage(text: string, maxChars: number): string {
+	const chars = [...text];
+	if (chars.length <= maxChars) {
+		return text;
+	}
+	const head = chars.slice(0, maxChars).join('');
+	const minKeep = head.length - (MAX_MESSAGE_CHARS - TARGET_MESSAGE_CHARS);
+	for (const boundary of [head.lastIndexOf('\n'), head.search(/\s\S*$/)]) {
+		if (boundary >= minKeep) {
+			return head.slice(0, boundary).trimEnd();
+		}
+	}
+	return head.trimEnd();
 }
 
 function sanitizeCommitMessage(text: string): string {
@@ -608,7 +632,7 @@ async function generateCommitMessage(context: vscode.ExtensionContext, arg: unkn
 				maxOutputTokens: cfg.maxOutputTokens,
 			});
 
-			const commitMessage = sanitizeCommitMessage(result.text);
+			const commitMessage = clampCommitMessage(sanitizeCommitMessage(result.text), MAX_MESSAGE_CHARS);
 			if (!commitMessage) {
 				vscode.window.showErrorMessage(t('Generated commit message is empty.'));
 				return;
