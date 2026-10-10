@@ -139,11 +139,6 @@ async function runGit(args: string[], cwd: string): Promise<{ stdout: string; st
 	throw lastErr;
 }
 
-async function getGitRoot(workspacePath: string): Promise<string> {
-	const { stdout } = await runGit(['rev-parse', '--show-toplevel'], workspacePath);
-	return stdout.trim();
-}
-
 type ChangeSet = { source: 'staged' | 'unstaged'; summary: string; diff: string };
 
 // Prefer staged changes; when nothing is staged, fall back to unstaged changes to tracked files
@@ -177,49 +172,85 @@ function noChangesMessage(untracked: string[]): string {
 	);
 }
 
-type GitExtension = {
-	getAPI: (version: number) => { repositories: Array<any> };
+// Minimal subset of the vscode.git extension API (see extensions/git/src/api/git.d.ts in VS Code).
+type GitRepository = {
+	rootUri: vscode.Uri;
+	inputBox: vscode.SourceControlInputBox;
+	ui?: { selected: boolean };
 };
 
-function normalizeFsPath(p: string): string {
-	const resolved = path.resolve(p);
-	return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+type GitAPI = {
+	state: 'uninitialized' | 'initialized';
+	onDidChangeState: vscode.Event<'uninitialized' | 'initialized'>;
+	repositories: GitRepository[];
+	getRepository(uri: vscode.Uri): GitRepository | null;
+};
+
+type GitExtension = {
+	getAPI(version: 1): GitAPI;
+};
+
+async function getGitAPI(): Promise<GitAPI> {
+	const gitExt = vscode.extensions.getExtension<GitExtension>('vscode.git');
+	const api = gitExt ? (await gitExt.activate()).getAPI(1) : undefined;
+	if (!api) {
+		throw new Error(t('The built-in Git extension (vscode.git) is not available. Make sure it is enabled.'));
+	}
+	// Right after startup the API may not have discovered repositories yet.
+	if (api.state !== 'initialized') {
+		await new Promise<void>((resolve) => {
+			const timer = setTimeout(done, 5000);
+			const sub = api.onDidChangeState((state) => state === 'initialized' && done());
+			function done() {
+				clearTimeout(timer);
+				sub.dispose();
+				resolve();
+			}
+		});
+	}
+	return api;
 }
 
-async function setGitScmInputBoxValue(gitRoot: string, value: string): Promise<boolean> {
-	const gitExt = vscode.extensions.getExtension<GitExtension>('vscode.git');
-	if (!gitExt) {
-		return false;
+// Resolution order: the repository whose SCM title button was clicked (VS Code passes its SourceControl
+// as the argument) → the only repository → the repository of the active editor → the single repository
+// selected in the SCM view → ask the user. Returns undefined if the user dismisses the picker.
+async function resolveRepository(api: GitAPI, arg: unknown): Promise<GitRepository | undefined> {
+	const argRoot = (arg as { rootUri?: unknown } | undefined)?.rootUri;
+	if (argRoot instanceof vscode.Uri) {
+		const repo = api.getRepository(argRoot);
+		if (repo) {
+			return repo;
+		}
 	}
 
-	try {
-		await gitExt.activate();
-	} catch {
-		// If activation fails, we fall back to best-effort behavior and let the caller show an error.
+	const repos = api.repositories;
+	if (repos.length === 0) {
+		throw new Error(t('No Git repository found.'));
+	}
+	if (repos.length === 1) {
+		return repos[0];
 	}
 
-	const api = (gitExt.exports as any)?.getAPI?.(1);
-	const repos = api?.repositories;
-	if (!Array.isArray(repos) || repos.length === 0) {
-		return false;
+	const activeUri = vscode.window.activeTextEditor?.document.uri;
+	const fromEditor = activeUri ? api.getRepository(activeUri) : null;
+	if (fromEditor) {
+		return fromEditor;
 	}
 
-	const root = normalizeFsPath(gitRoot);
-	// Select the repository matching the workspace's git root. If not found, fall back to the first repo
-	// because VS Code can host multiple repositories in a single workspace.
-	const repo =
-		repos.find((r: any) => r?.rootUri?.fsPath && normalizeFsPath(r.rootUri.fsPath) === root) ?? repos[0];
-
-	const inputBox =
-		(repo?.inputBox as vscode.SourceControlInputBox | undefined) ??
-		(repo?.sourceControl?.inputBox as vscode.SourceControlInputBox | undefined);
-
-	if (!inputBox) {
-		return false;
+	const selected = repos.filter((r) => r.ui?.selected);
+	if (selected.length === 1) {
+		return selected[0];
 	}
 
-	inputBox.value = value;
-	return true;
+	const picked = await vscode.window.showQuickPick(
+		repos.map((repo) => ({
+			label: path.basename(repo.rootUri.fsPath),
+			description: repo.rootUri.fsPath,
+			repo,
+		})),
+		{ placeHolder: t('Select a repository to generate a commit message for') },
+	);
+	return picked?.repo;
 }
 
 function truncateWithNotice(text: string, maxChars: number): string {
@@ -535,17 +566,13 @@ async function deleteApiKey(context: vscode.ExtensionContext): Promise<void> {
 	vscode.window.showInformationMessage(t('OpenAI API Key deleted.'));
 }
 
-async function generateCommitMessageFromStaged(context: vscode.ExtensionContext): Promise<void> {
+async function generateCommitMessage(context: vscode.ExtensionContext, arg: unknown): Promise<void> {
 	const cfg = getConfig();
-	const workspaceFolder =
-		(vscode.window.activeTextEditor?.document.uri
-			? vscode.workspace.getWorkspaceFolder(vscode.window.activeTextEditor.document.uri)
-			: undefined) ?? vscode.workspace.workspaceFolders?.[0];
-
-	if (!workspaceFolder) {
-		vscode.window.showErrorMessage(t('No workspace folder found.'));
+	const repo = await resolveRepository(await getGitAPI(), arg);
+	if (!repo) {
 		return;
 	}
+	const gitRoot = repo.rootUri.fsPath;
 
 	// Optional: local proxies such as cc-ds.py accept requests without a key.
 	const apiKey = await getApiKey(context);
@@ -557,7 +584,6 @@ async function generateCommitMessageFromStaged(context: vscode.ExtensionContext)
 			cancellable: false,
 		},
 		async () => {
-			const gitRoot = await getGitRoot(workspaceFolder.uri.fsPath);
 			const changes = await getChanges(gitRoot);
 			if (!changes) {
 				vscode.window.showWarningMessage(noChangesMessage(await getUntrackedFiles(gitRoot)));
@@ -588,15 +614,7 @@ async function generateCommitMessageFromStaged(context: vscode.ExtensionContext)
 				return;
 			}
 
-			const applied = await setGitScmInputBoxValue(gitRoot, commitMessage);
-			if (!applied) {
-				vscode.window.showErrorMessage(
-					t(
-						'Could not apply the commit message to Git commit input. Make sure the built-in Git extension (vscode.git) is enabled.',
-					),
-				);
-				return;
-			}
+			repo.inputBox.value = commitMessage;
 
 			await vscode.commands.executeCommand('workbench.view.scm');
 			try {
@@ -616,9 +634,9 @@ async function generateCommitMessageFromStaged(context: vscode.ExtensionContext)
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('git-ai-message.generateFromStaged', async () => {
+		vscode.commands.registerCommand('git-ai-message.generateFromStaged', async (arg?: unknown) => {
 			try {
-				await generateCommitMessageFromStaged(context);
+				await generateCommitMessage(context, arg);
 			} catch (err) {
 				const msg = err instanceof Error ? err.message : String(err);
 				vscode.window.showErrorMessage(msg);

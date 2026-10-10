@@ -8,6 +8,7 @@ Generate commit messages from your changes via the OpenAI API (Responses API) an
 
 - Uses staged changes (`git diff --cached`); if nothing is staged, falls back to unstaged changes to tracked files (`git diff`). Untracked files are not included
 - Fills the Git commit input box (it **does not** run `git commit`)
+- Multi-repository workspaces: the ✨ button acts on its own repository; from the Command Palette the repository of the active editor is used, otherwise you are asked to pick one
 - Output language follows VS Code UI language (Japanese if `vscode.env.language` starts with `ja`, otherwise English), unless your format instruction specifies otherwise
 - Fully customizable output format (e.g., Conventional Commits, bullets-only, etc.)
 - Optional notification showing token usage and estimated cost

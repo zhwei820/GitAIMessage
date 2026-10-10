@@ -2,29 +2,26 @@
   "fetch is not available in this extension host environment.": "この拡張の実行環境で fetch が利用できません。",
   "OpenAI API error: {0}": "OpenAI API エラー: {0}",
   "Could not extract a commit message from OpenAI API response.": "OpenAI API からコミットメッセージを抽出できませんでした。",
-
   "tokens: in {0} / out {1} (total {2})": "トークン: 入力 {0} / 出力 {1}（合計 {2}）",
   "estimated cost: (usage not available)": "料金目安: （usage が取得できませんでした）",
   "estimated cost: {0} <0.001": "料金目安: {0} <0.001",
   "estimated cost: {0} {1}": "料金目安: {0} {1}",
-
   "Git AI Message: Set OpenAI API Key": "Git AI Message: OpenAI API Key を設定",
   "Enter your OpenAI API Key (stored in Secret Storage).": "OpenAI API Key を入力してください（Secret Storage に保存されます）",
   "API key is empty. Nothing was saved.": "API Key が空のため保存しませんでした。",
   "OpenAI API Key saved.": "OpenAI API Key を保存しました。",
-
   "No saved OpenAI API Key.": "保存済みの OpenAI API Key はありません。",
   "Delete": "削除する",
   "Delete the saved OpenAI API Key?": "保存済みの OpenAI API Key を削除します。よろしいですか？",
   "OpenAI API Key deleted.": "OpenAI API Key を削除しました。",
-
-  "No workspace folder found.": "ワークスペースが見つかりません。",
-  "Generating commit message\u2026": "コミットメッセージを生成中…",
+  "No Git repository found.": "Git リポジトリが見つかりません。",
+  "Select a repository to generate a commit message for": "コミットメッセージを生成するリポジトリを選択してください",
+  "Generating commit message…": "コミットメッセージを生成中…",
   "No changes found: nothing is staged and tracked files are unchanged.": "変更が見つかりません：ステージ済みの変更がなく、追跡中ファイルにも変更がありません。",
   "No changes found in tracked files. {0} untracked file(s) ({1}) are not included; stage them with `git add` first.": "追跡中ファイルに変更がありません。未追跡ファイル {0} 件（{1}）は対象外です。先に `git add` でステージしてください。",
   "Git CLI not found. Install Git or make sure the `git` command is available in PATH.": "Git（CLI）が見つかりません。Git をインストールするか、`git` コマンドが PATH で利用できることを確認してください。",
   "Generated commit message is empty.": "コミットメッセージが空でした。",
-  "Could not apply the commit message to Git commit input. Make sure the built-in Git extension (vscode.git) is enabled.": "Git のコミット入力欄に反映できませんでした。Git 拡張（vscode.git）が無効化されていないか確認してください。",
+  "The built-in Git extension (vscode.git) is not available. Make sure it is enabled.": "Git 拡張（vscode.git）が利用できません。無効化されていないか確認してください。",
   "Commit message generated ({0}).": "コミットメッセージを生成しました（{0}）。",
   "Commit message generated.": "コミットメッセージを生成しました。"
 }
