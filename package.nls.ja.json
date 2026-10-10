@@ -2,7 +2,7 @@
   "extension.displayName": "Git AI Message",
   "extension.description": "AIでGitのコミットメッセージを生成する拡張",
 
-  "command.generateFromStaged.title": "Git AI Message: ステージ差分からコミットメッセージ生成",
+  "command.generateFromStaged.title": "Git AI Message: コミットメッセージ生成",
   "command.setOpenAIApiKey.title": "Git AI Message: OpenAI API Key を設定",
   "command.deleteOpenAIApiKey.title": "Git AI Message: OpenAI API Key を削除",
 
@@ -13,7 +13,7 @@
   "setting.formatInstruction.description": "生成するコミットメッセージの形式指定（最優先・自由形式）。例: 箇条書きのみ、タイトル+詳細、など。",
   "setting.additionalInstructions.default": "修正内容の本質を理解すること",
   "setting.formatInstruction.default": "各修正内容をプレフィックス「・」で端的なリスト形式で出力する",
-  "setting.maxDiffChars.description": "解析するステージ差分の最大文字数（超過分は切り捨て）",
+  "setting.maxDiffChars.description": "解析する差分の最大文字数（超過分は切り捨て）",
   "setting.temperature.description": "生成のランダム性（0〜2）",
   "setting.maxOutputTokens.description": "出力トークン上限",
   "setting.showUsageInNotification.description": "生成後の通知にトークン数/料金目安を表示する",
@@ -36,13 +36,13 @@
 
   "warn.apiKeyNotSet": "OpenAI API Key が未設定です。",
   "warn.apiKeyEmptyNotSaved": "API Key が空のため保存しませんでした。",
-  "warn.noStagedChanges": "ステージ済みの変更が見つかりません（git diff --cached が空）。",
+  "warn.noStagedChanges": "変更が見つかりません：ステージ済みの変更がなく、追跡中ファイルにも変更がありません。",
   "info.apiKeySaved": "OpenAI API Key を保存しました。",
   "info.apiKeyNotStored": "保存済みの OpenAI API Key はありません。",
   "confirm.deleteApiKey": "保存済みの OpenAI API Key を削除します。よろしいですか？",
   "info.apiKeyDeleted": "OpenAI API Key を削除しました。",
 
-  "progress.generating": "ステージ済み差分からコミットメッセージを生成中…",
+  "progress.generating": "コミットメッセージを生成中…",
   "info.commitGenerated": "コミットメッセージを生成しました。",
   "info.commitGeneratedWithUsage": "コミットメッセージを生成しました（{0}）。",
 

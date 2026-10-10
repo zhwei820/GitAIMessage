@@ -2,7 +2,7 @@
   "extension.displayName": "Git AI Message",
   "extension.description": "An extension that generates Git commit messages with AI.",
 
-  "command.generateFromStaged.title": "Git AI Message: Generate commit message from staged changes",
+  "command.generateFromStaged.title": "Git AI Message: Generate commit message",
   "command.setOpenAIApiKey.title": "Git AI Message: Set OpenAI API Key",
   "command.deleteOpenAIApiKey.title": "Git AI Message: Delete OpenAI API Key",
 
@@ -13,7 +13,7 @@
   "setting.formatInstruction.description": "Output format instruction (highest priority, free-form). Example: bullets only, or title + details.",
   "setting.additionalInstructions.default": "Understand the essence of the changes.",
   "setting.formatInstruction.default": "Output each change as a concise list prefixed with '- '.",
-  "setting.maxDiffChars.description": "Maximum characters of staged diff to analyze (truncates extra)",
+  "setting.maxDiffChars.description": "Maximum characters of diff to analyze (truncates extra)",
   "setting.temperature.description": "Randomness (0–2)",
   "setting.maxOutputTokens.description": "Max output tokens",
   "setting.showUsageInNotification.description": "Show token usage and estimated cost in the completion notification",
@@ -36,13 +36,13 @@
 
   "warn.apiKeyNotSet": "OpenAI API Key is not set.",
   "warn.apiKeyEmptyNotSaved": "API key is empty. Nothing was saved.",
-  "warn.noStagedChanges": "No staged changes found (git diff --cached is empty).",
+  "warn.noStagedChanges": "No changes found: nothing is staged and tracked files are unchanged.",
   "info.apiKeySaved": "OpenAI API Key saved.",
   "info.apiKeyNotStored": "No saved OpenAI API Key.",
   "confirm.deleteApiKey": "Delete the saved OpenAI API Key?",
   "info.apiKeyDeleted": "OpenAI API Key deleted.",
 
-  "progress.generating": "Generating commit message from staged changes…",
+  "progress.generating": "Generating commit message…",
   "info.commitGenerated": "Commit message generated.",
   "info.commitGeneratedWithUsage": "Commit message generated ({0}).",
 

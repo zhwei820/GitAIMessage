@@ -144,14 +144,37 @@ async function getGitRoot(workspacePath: string): Promise<string> {
 	return stdout.trim();
 }
 
-async function getStagedDiff(gitRoot: string): Promise<string> {
-	const { stdout } = await runGit(['diff', '--cached', '--no-color'], gitRoot);
-	return stdout;
+type ChangeSet = { source: 'staged' | 'unstaged'; summary: string; diff: string };
+
+// Prefer staged changes; when nothing is staged, fall back to unstaged changes to tracked files
+// (untracked files are not included).
+async function getChanges(gitRoot: string): Promise<ChangeSet | null> {
+	for (const source of ['staged', 'unstaged'] as const) {
+		const base = source === 'staged' ? ['diff', '--cached', '--no-color'] : ['diff', '--no-color'];
+		const { stdout: diff } = await runGit(base, gitRoot);
+		if (diff.trim()) {
+			const { stdout: summary } = await runGit([...base, '--stat'], gitRoot);
+			return { source, summary: summary.trim(), diff };
+		}
+	}
+	return null;
 }
 
-async function getStagedSummary(gitRoot: string): Promise<string> {
-	const { stdout } = await runGit(['diff', '--cached', '--no-color', '--stat'], gitRoot);
-	return stdout.trim();
+async function getUntrackedFiles(gitRoot: string): Promise<string[]> {
+	const { stdout } = await runGit(['ls-files', '--others', '--exclude-standard'], gitRoot);
+	return stdout.split('\n').filter(Boolean);
+}
+
+function noChangesMessage(untracked: string[]): string {
+	if (untracked.length === 0) {
+		return t('No changes found: nothing is staged and tracked files are unchanged.');
+	}
+	const shown = untracked.slice(0, 3).join(', ') + (untracked.length > 3 ? ', …' : '');
+	return t(
+		'No changes found in tracked files. {0} untracked file(s) ({1}) are not included; stage them with `git add` first.',
+		untracked.length,
+		shown,
+	);
 }
 
 type GitExtension = {
@@ -212,8 +235,9 @@ function truncateWithNotice(text: string, maxChars: number): string {
 function buildPrompt(params: {
 	additionalInstructions: string;
 	formatInstruction: string;
-	stagedSummary: string;
-	stagedDiff: string;
+	source: ChangeSet['source'];
+	summary: string;
+	diff: string;
 }): { system: string; user: string } {
 	const lang = vscode.env.language.toLowerCase().startsWith('ja') ? 'Japanese' : 'English';
 
@@ -225,7 +249,7 @@ function buildPrompt(params: {
 	// additional structure (like "subject only") that could conflict with the requested format.
 	const system = hasFormatInstruction
 		? [
-			'You generate a Git commit message from staged changes.',
+			`You generate a Git commit message from ${params.source} changes.`,
 			'Follow the output format instruction EXACTLY. If it conflicts with other guidelines, the output format instruction wins.',
 			`Write in ${lang} unless the output format instruction specifies otherwise.`,
 			format,
@@ -233,7 +257,7 @@ function buildPrompt(params: {
 			'Output ONLY the commit message text.',
 		].join('\n')
 		: [
-			'You generate a Git commit message from staged changes.',
+			`You generate a Git commit message from ${params.source} changes.`,
 			`Write in ${lang}.`,
 			'Output only a single-line subject (no body).',
 			'Subject should be concise (ideally <= 72 characters).',
@@ -241,13 +265,14 @@ function buildPrompt(params: {
 			'Output ONLY the commit message text.',
 		].join('\n');
 
+	const label = params.source === 'staged' ? 'Staged' : 'Unstaged';
 	const user = [
 		extra,
-		'Staged summary:',
-		params.stagedSummary || '(no --stat output)',
+		`${label} summary:`,
+		params.summary || '(no --stat output)',
 		'',
-		'Staged diff:',
-		params.stagedDiff || '(empty diff)',
+		`${label} diff:`,
+		params.diff || '(empty diff)',
 	]
 		.filter(Boolean)
 		.join('\n');
@@ -528,25 +553,23 @@ async function generateCommitMessageFromStaged(context: vscode.ExtensionContext)
 	await vscode.window.withProgress(
 		{
 			location: vscode.ProgressLocation.Notification,
-			title: t('Generating commit message from staged changes…'),
+			title: t('Generating commit message…'),
 			cancellable: false,
 		},
 		async () => {
 			const gitRoot = await getGitRoot(workspaceFolder.uri.fsPath);
-			const stagedSummary = await getStagedSummary(gitRoot);
-			const stagedDiffRaw = await getStagedDiff(gitRoot);
-
-			if (!stagedDiffRaw.trim()) {
-				vscode.window.showWarningMessage(t('No staged changes found (git diff --cached is empty).'));
+			const changes = await getChanges(gitRoot);
+			if (!changes) {
+				vscode.window.showWarningMessage(noChangesMessage(await getUntrackedFiles(gitRoot)));
 				return;
 			}
 
-			const stagedDiff = truncateWithNotice(stagedDiffRaw, cfg.maxDiffChars);
 			const { system, user } = buildPrompt({
 				additionalInstructions: cfg.additionalInstructions,
 				formatInstruction: cfg.formatInstruction,
-				stagedSummary,
-				stagedDiff,
+				source: changes.source,
+				summary: changes.summary,
+				diff: truncateWithNotice(changes.diff, cfg.maxDiffChars),
 			});
 
 			const result = await callOpenAIResponses({

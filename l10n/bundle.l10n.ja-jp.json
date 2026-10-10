@@ -19,8 +19,9 @@
   "OpenAI API Key deleted.": "OpenAI API Key を削除しました。",
 
   "No workspace folder found.": "ワークスペースが見つかりません。",
-  "Generating commit message from staged changes\u2026": "ステージ済み差分からコミットメッセージを生成中…",
-  "No staged changes found (git diff --cached is empty).": "ステージ済みの変更が見つかりません（git diff --cached が空）。",
+  "Generating commit message\u2026": "コミットメッセージを生成中…",
+  "No changes found: nothing is staged and tracked files are unchanged.": "変更が見つかりません：ステージ済みの変更がなく、追跡中ファイルにも変更がありません。",
+  "No changes found in tracked files. {0} untracked file(s) ({1}) are not included; stage them with `git add` first.": "追跡中ファイルに変更がありません。未追跡ファイル {0} 件（{1}）は対象外です。先に `git add` でステージしてください。",
   "Git CLI not found. Install Git or make sure the `git` command is available in PATH.": "Git（CLI）が見つかりません。Git をインストールするか、`git` コマンドが PATH で利用できることを確認してください。",
   "Generated commit message is empty.": "コミットメッセージが空でした。",
   "Could not apply the commit message to Git commit input. Make sure the built-in Git extension (vscode.git) is enabled.": "Git のコミット入力欄に反映できませんでした。Git 拡張（vscode.git）が無効化されていないか確認してください。",
