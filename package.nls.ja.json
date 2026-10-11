@@ -15,6 +15,7 @@
   "setting.formatInstruction.description": "生成するコミットメッセージの形式指定（最優先・自由形式）。例: 箇条書きのみ、タイトル+詳細、など。",
   "setting.additionalInstructions.default": "修正内容の本質を理解すること",
   "setting.formatInstruction.default": "各修正内容をプレフィックス「・」で端的なリスト形式で出力する",
+  "setting.autoRefreshInterval.description": "VS Code ウィンドウがフォーカス中にソース管理を再読み込み（git status）する間隔（秒）。フォーカスが戻った時にも再読み込みします。0 で無効。",
   "setting.maxDiffChars.description": "解析する差分の最大文字数（超過分は切り捨て）",
   "setting.temperature.description": "生成のランダム性（0〜2）",
   "setting.maxOutputTokens.description": "出力トークン上限",

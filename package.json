@@ -112,6 +112,12 @@
           "default": "%setting.formatInstruction.default%",
           "description": "%setting.formatInstruction.description%"
         },
+        "gitAIMessage.autoRefreshInterval": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "description": "%setting.autoRefreshInterval.description%"
+        },
         "gitAIMessage.maxDiffChars": {
           "type": "number",
           "default": 12000,

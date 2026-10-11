@@ -177,6 +177,7 @@ type GitRepository = {
 	rootUri: vscode.Uri;
 	inputBox: vscode.SourceControlInputBox;
 	ui?: { selected: boolean };
+	status(): Promise<void>;
 	state: {
 		HEAD?: { ahead?: number };
 		onDidChange: vscode.Event<void>;
@@ -288,6 +289,41 @@ async function trackUnpushedCommits(context: vscode.ExtensionContext): Promise<v
 		{ dispose: () => repoSubs.forEach((sub) => sub.dispose()) },
 	);
 	update();
+}
+
+// vscode.git's file watcher can miss changes (e.g. made by external tools), leaving the SCM view stale.
+// Re-run `git status` periodically while the window is focused, and once whenever it regains focus.
+async function autoRefreshRepositories(context: vscode.ExtensionContext): Promise<void> {
+	const api = await getGitAPI();
+	let running = false;
+	const refresh = async () => {
+		if (running || !vscode.window.state.focused) {
+			return;
+		}
+		running = true;
+		try {
+			await Promise.all(api.repositories.map((r) => r.status().catch(() => undefined)));
+		} finally {
+			running = false;
+		}
+	};
+
+	let timer: ReturnType<typeof setInterval> | undefined;
+	const schedule = () => {
+		clearInterval(timer);
+		timer = undefined;
+		const seconds = vscode.workspace.getConfiguration('gitAIMessage').get<number>('autoRefreshInterval', 5);
+		if (seconds > 0) {
+			timer = setInterval(() => void refresh(), Math.max(seconds, 1) * 1000);
+		}
+	};
+	schedule();
+
+	context.subscriptions.push(
+		vscode.workspace.onDidChangeConfiguration((e) => e.affectsConfiguration('gitAIMessage.autoRefreshInterval') && schedule()),
+		vscode.window.onDidChangeWindowState((state) => state.focused && timer && void refresh()),
+		{ dispose: () => clearInterval(timer) },
+	);
 }
 
 function truncateWithNotice(text: string, maxChars: number): string {
@@ -866,6 +902,7 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	trackUnpushedCommits(context).catch((err) => console.error('[git-ai-message] tracking unpushed commits failed:', err));
+	autoRefreshRepositories(context).catch((err) => console.error('[git-ai-message] auto refresh setup failed:', err));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('git-ai-message.setOpenAIApiKey', async () => {

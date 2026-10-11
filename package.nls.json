@@ -15,6 +15,7 @@
   "setting.formatInstruction.description": "Output format instruction (highest priority, free-form). Example: bullets only, or title + details.",
   "setting.additionalInstructions.default": "Understand the essence of the changes.",
   "setting.formatInstruction.default": "Output each change as a concise list prefixed with '- '.",
+  "setting.autoRefreshInterval.description": "Seconds between Source Control refreshes (git status) while the VS Code window is focused; it also refreshes when the window regains focus. 0 disables.",
   "setting.maxDiffChars.description": "Maximum characters of diff to analyze (truncates extra)",
   "setting.temperature.description": "Randomness (0–2)",
   "setting.maxOutputTokens.description": "Max output tokens",
