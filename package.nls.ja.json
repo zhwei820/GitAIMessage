@@ -5,6 +5,7 @@
   "command.generateFromStaged.title": "Git AI Message: コミットメッセージ生成",
   "command.push.title": "Git AI Message: プッシュ",
   "command.pushUnpushed.title": "Git AI Message: プッシュ（未プッシュのコミットあり）",
+  "command.openBranchInBrowser.title": "Git AI Message: ブランチをブラウザで開く",
   "command.setOpenAIApiKey.title": "Git AI Message: OpenAI API Key を設定",
   "command.deleteOpenAIApiKey.title": "Git AI Message: OpenAI API Key を削除",
 

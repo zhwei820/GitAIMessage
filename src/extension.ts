@@ -221,7 +221,11 @@ async function getGitAPI(): Promise<GitAPI> {
 // Resolution order: the repository whose SCM title button was clicked (VS Code passes its SourceControl
 // as the argument) → the only repository → the repository of the active editor → the single repository
 // selected in the SCM view → ask the user. Returns undefined if the user dismisses the picker.
-async function resolveRepository(api: GitAPI, arg: unknown): Promise<GitRepository | undefined> {
+async function resolveRepository(
+	api: GitAPI,
+	arg: unknown,
+	placeHolder = t('Select a repository to generate a commit message for'),
+): Promise<GitRepository | undefined> {
 	const argRoot = (arg as { rootUri?: unknown } | undefined)?.rootUri;
 	if (argRoot instanceof vscode.Uri) {
 		const repo = api.getRepository(argRoot);
@@ -255,7 +259,7 @@ async function resolveRepository(api: GitAPI, arg: unknown): Promise<GitReposito
 			description: repo.rootUri.fsPath,
 			repo,
 		})),
-		{ placeHolder: t('Select a repository to generate a commit message for') },
+		{ placeHolder },
 	);
 	return picked?.repo;
 }
@@ -324,6 +328,87 @@ async function autoRefreshRepositories(context: vscode.ExtensionContext): Promis
 		vscode.window.onDidChangeWindowState((state) => state.focused && timer && void refresh()),
 		{ dispose: () => clearInterval(timer) },
 	);
+}
+
+// Converts a remote URL (https, ssh://, or scp-like `git@host:owner/repo.git`) into the repository's web URL.
+function remoteToWebUrl(remote: string): string | undefined {
+	const scp = /^[^/@\s]+@([^:/\s]+):(?!\/)(.+)$/.exec(remote);
+	let host: string;
+	let repoPath: string;
+	if (scp) {
+		[, host, repoPath] = scp;
+	} else {
+		let url: URL;
+		try {
+			url = new URL(remote);
+		} catch {
+			return undefined;
+		}
+		if (!['http:', 'https:', 'ssh:', 'git:'].includes(url.protocol)) {
+			return undefined;
+		}
+		// The ssh port is not the web port; keep an explicit port only for http(s).
+		host = url.protocol.startsWith('http') ? url.host : url.hostname;
+		repoPath = url.pathname;
+	}
+	repoPath = repoPath.replace(/^\/+/, '').replace(/\/+$/, '').replace(/\.git$/, '');
+	return repoPath ? `https://${host}/${repoPath}` : undefined;
+}
+
+// GitHub and Bitbucket are recognized by host name; anything else is assumed to be GitLab.
+function branchWebUrl(repoUrl: string, branch: string): string {
+	const host = new URL(repoUrl).hostname;
+	const encoded = branch.split('/').map(encodeURIComponent).join('/');
+	if (host.includes('github')) {
+		return `${repoUrl}/tree/${encoded}`;
+	}
+	if (host.includes('bitbucket')) {
+		return `${repoUrl}/src/${encoded}`;
+	}
+	return `${repoUrl}/-/tree/${encoded}`;
+}
+
+async function gitConfigValue(key: string, cwd: string): Promise<string | undefined> {
+	try {
+		return (await runGit(['config', '--get', key], cwd)).stdout.trim() || undefined;
+	} catch {
+		// `git config --get` exits with 1 when the key is unset.
+		return undefined;
+	}
+}
+
+// Uses the branch's upstream remote and upstream branch name when set, otherwise `origin` (or the only
+// remote) and the local branch name.
+async function openBranchInBrowser(arg: unknown): Promise<void> {
+	const repo = await resolveRepository(await getGitAPI(), arg, t('Select a repository to open in the browser'));
+	if (!repo) {
+		return;
+	}
+	const gitRoot = repo.rootUri.fsPath;
+
+	const branch = (await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], gitRoot)).stdout.trim();
+	if (!branch || branch === 'HEAD') {
+		throw new Error(t('HEAD is detached; there is no branch to open.'));
+	}
+
+	const remotes = (await runGit(['remote'], gitRoot)).stdout.split('\n').filter(Boolean);
+	const upstreamRemote = await gitConfigValue(`branch.${branch}.remote`, gitRoot);
+	const remote =
+		(upstreamRemote && remotes.includes(upstreamRemote) && upstreamRemote) ||
+		(remotes.includes('origin') ? 'origin' : remotes[0]);
+	if (!remote) {
+		throw new Error(t('The repository has no remote.'));
+	}
+
+	const remoteUrl = (await runGit(['remote', 'get-url', remote], gitRoot)).stdout.trim();
+	const repoUrl = remoteToWebUrl(remoteUrl);
+	if (!repoUrl) {
+		throw new Error(t('Cannot derive a web URL from remote "{0}" ({1}).', remote, remoteUrl));
+	}
+
+	const upstreamRef = remote === upstreamRemote ? await gitConfigValue(`branch.${branch}.merge`, gitRoot) : undefined;
+	const remoteBranch = upstreamRef?.replace(/^refs\/heads\//, '') || branch;
+	await vscode.env.openExternal(vscode.Uri.parse(branchWebUrl(repoUrl, remoteBranch), true));
 }
 
 function truncateWithNotice(text: string, maxChars: number): string {
@@ -899,6 +984,17 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('git-ai-message.push', push),
 		vscode.commands.registerCommand('git-ai-message.pushUnpushed', push),
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('git-ai-message.openBranchInBrowser', async (arg?: unknown) => {
+			try {
+				await openBranchInBrowser(arg);
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : String(err);
+				vscode.window.showErrorMessage(msg);
+			}
+		}),
 	);
 
 	trackUnpushedCommits(context).catch((err) => console.error('[git-ai-message] tracking unpushed commits failed:', err));

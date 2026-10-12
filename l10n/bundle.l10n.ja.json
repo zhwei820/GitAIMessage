@@ -23,5 +23,9 @@
   "Generated commit message is empty.": "コミットメッセージが空でした。",
   "The built-in Git extension (vscode.git) is not available. Make sure it is enabled.": "Git 拡張（vscode.git）が利用できません。無効化されていないか確認してください。",
   "Commit message generated ({0}).": "コミットメッセージを生成しました（{0}）。",
-  "Commit message generated.": "コミットメッセージを生成しました。"
+  "Commit message generated.": "コミットメッセージを生成しました。",
+  "Select a repository to open in the browser": "ブラウザで開くリポジトリを選択してください",
+  "HEAD is detached; there is no branch to open.": "HEAD が detached 状態のため、開くブランチがありません。",
+  "The repository has no remote.": "リポジトリにリモートが設定されていません。",
+  "Cannot derive a web URL from remote \"{0}\" ({1}).": "リモート「{0}」（{1}）から Web URL を取得できません。"
 }

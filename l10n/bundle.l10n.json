@@ -23,5 +23,9 @@
   "Generated commit message is empty.": "Generated commit message is empty.",
   "The built-in Git extension (vscode.git) is not available. Make sure it is enabled.": "The built-in Git extension (vscode.git) is not available. Make sure it is enabled.",
   "Commit message generated ({0}).": "Commit message generated ({0}).",
-  "Commit message generated.": "Commit message generated."
+  "Commit message generated.": "Commit message generated.",
+  "Select a repository to open in the browser": "Select a repository to open in the browser",
+  "HEAD is detached; there is no branch to open.": "HEAD is detached; there is no branch to open.",
+  "The repository has no remote.": "The repository has no remote.",
+  "Cannot derive a web URL from remote \"{0}\" ({1}).": "Cannot derive a web URL from remote \"{0}\" ({1})."
 }

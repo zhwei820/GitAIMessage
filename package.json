@@ -27,6 +27,7 @@
     "onStartupFinished",
     "onCommand:git-ai-message.generateFromStaged",
     "onCommand:git-ai-message.push",
+    "onCommand:git-ai-message.openBranchInBrowser",
     "onCommand:git-ai-message.setOpenAIApiKey",
     "onCommand:git-ai-message.deleteOpenAIApiKey"
   ],
@@ -56,6 +57,11 @@
         }
       },
       {
+        "command": "git-ai-message.openBranchInBrowser",
+        "title": "%command.openBranchInBrowser.title%",
+        "icon": "$(link-external)"
+      },
+      {
         "command": "git-ai-message.setOpenAIApiKey",
         "title": "%command.setOpenAIApiKey.title%"
       },
@@ -80,6 +86,11 @@
           "command": "git-ai-message.pushUnpushed",
           "group": "navigation@-999",
           "when": "scmProvider == git && scmProviderRootUri in gitAIMessage.unpushedRepos"
+        },
+        {
+          "command": "git-ai-message.openBranchInBrowser",
+          "group": "navigation@-998",
+          "when": "scmProvider == git"
         }
       ],
       "commandPalette": [

@@ -5,6 +5,7 @@
   "command.generateFromStaged.title": "Git AI Message: Generate commit message",
   "command.push.title": "Git AI Message: Push",
   "command.pushUnpushed.title": "Git AI Message: Push (unpushed commits)",
+  "command.openBranchInBrowser.title": "Git AI Message: Open Branch in Browser",
   "command.setOpenAIApiKey.title": "Git AI Message: Set OpenAI API Key",
   "command.deleteOpenAIApiKey.title": "Git AI Message: Delete OpenAI API Key",
 
