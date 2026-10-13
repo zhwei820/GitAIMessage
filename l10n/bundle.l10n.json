@@ -25,6 +25,7 @@
   "Commit message generated ({0}).": "Commit message generated ({0}).",
   "Commit message generated.": "Commit message generated.",
   "Select a repository to open in the browser": "Select a repository to open in the browser",
+  "Select a repository to push": "Select a repository to push",
   "HEAD is detached; there is no branch to open.": "HEAD is detached; there is no branch to open.",
   "The repository has no remote.": "The repository has no remote.",
   "Cannot derive a web URL from remote \"{0}\" ({1}).": "Cannot derive a web URL from remote \"{0}\" ({1})."

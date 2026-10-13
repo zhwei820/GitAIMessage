@@ -178,8 +178,10 @@ type GitRepository = {
 	inputBox: vscode.SourceControlInputBox;
 	ui?: { selected: boolean };
 	status(): Promise<void>;
+	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
 	state: {
-		HEAD?: { ahead?: number };
+		HEAD?: { name?: string; upstream?: { remote: string; name: string }; ahead?: number };
+		remotes: { name: string }[];
 		onDidChange: vscode.Event<void>;
 	};
 };
@@ -375,6 +377,26 @@ async function gitConfigValue(key: string, cwd: string): Promise<string | undefi
 		// `git config --get` exits with 1 when the key is unset.
 		return undefined;
 	}
+}
+
+// A branch without upstream is pushed as `git push --set-upstream <origin|only remote> <branch>` instead of
+// vscode.git's publish prompt; otherwise delegate to git.push.
+async function pushRepository(arg: unknown): Promise<void> {
+	const repo = await resolveRepository(await getGitAPI(), arg, t('Select a repository to push'));
+	if (!repo) {
+		return;
+	}
+	const head = repo.state.HEAD;
+	if (!head?.name || head.upstream) {
+		await vscode.commands.executeCommand('git.push', repo.rootUri);
+		return;
+	}
+	const remotes = repo.state.remotes.map((r) => r.name);
+	const remote = remotes.includes('origin') ? 'origin' : remotes[0];
+	if (!remote) {
+		throw new Error(t('The repository has no remote.'));
+	}
+	await repo.push(remote, head.name, true);
 }
 
 // Uses the branch's upstream remote and upstream branch name when set, otherwise `origin` (or the only
@@ -972,10 +994,9 @@ export function activate(context: vscode.ExtensionContext) {
 		}),
 	);
 
-	// Forward the clicked SCM provider so vscode.git pushes that repository (or prompts when absent).
 	const push = async (arg?: unknown) => {
 		try {
-			await vscode.commands.executeCommand('git.push', arg);
+			await pushRepository(arg);
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			vscode.window.showErrorMessage(msg);

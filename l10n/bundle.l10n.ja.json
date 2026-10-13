@@ -25,6 +25,7 @@
   "Commit message generated ({0}).": "コミットメッセージを生成しました（{0}）。",
   "Commit message generated.": "コミットメッセージを生成しました。",
   "Select a repository to open in the browser": "ブラウザで開くリポジトリを選択してください",
+  "Select a repository to push": "プッシュするリポジトリを選択してください",
   "HEAD is detached; there is no branch to open.": "HEAD が detached 状態のため、開くブランチがありません。",
   "The repository has no remote.": "リポジトリにリモートが設定されていません。",
   "Cannot derive a web URL from remote \"{0}\" ({1}).": "リモート「{0}」（{1}）から Web URL を取得できません。"
