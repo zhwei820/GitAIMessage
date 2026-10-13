@@ -106,6 +106,7 @@ type GitRepository = {
 	inputBox: vscode.SourceControlInputBox;
 	ui?: { selected: boolean };
 	status(): Promise<void>;
+	pull(): Promise<void>;
 	push(remoteName?: string, branchName?: string, setUpstream?: boolean): Promise<void>;
 	state: {
 		HEAD?: { name?: string; upstream?: { remote: string; name: string }; ahead?: number };
@@ -308,7 +309,7 @@ async function gitConfigValue(key: string, cwd: string): Promise<string | undefi
 }
 
 // A branch without upstream is pushed as `git push --set-upstream <origin|only remote> <branch>` instead of
-// vscode.git's publish prompt; otherwise delegate to git.push.
+// vscode.git's publish prompt; otherwise pull first (so a behind branch isn't rejected), then delegate to git.push.
 async function pushRepository(arg: unknown): Promise<void> {
 	const repo = await resolveRepository(await getGitAPI(), arg, t('Select a repository to push'));
 	if (!repo) {
@@ -316,6 +317,9 @@ async function pushRepository(arg: unknown): Promise<void> {
 	}
 	const head = repo.state.HEAD;
 	if (!head?.name || head.upstream) {
+		if (head?.upstream) {
+			await repo.pull();
+		}
 		await vscode.commands.executeCommand('git.push', repo.rootUri);
 		return;
 	}
