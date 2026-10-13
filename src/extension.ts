@@ -998,8 +998,14 @@ export function activate(context: vscode.ExtensionContext) {
 		try {
 			await pushRepository(arg);
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			vscode.window.showErrorMessage(msg);
+			// vscode.git's GitError carries only "Failed to execute git" in message; git's reason is in stderr.
+			const stderr = (err as { stderr?: unknown } | undefined)?.stderr;
+			const detail = typeof stderr === 'string' ? stderr.trim() : '';
+			const msg = detail || (err instanceof Error ? err.message : String(err));
+			const showOutput = t('Show Git Output');
+			if ((await vscode.window.showErrorMessage(msg, showOutput)) === showOutput) {
+				await vscode.commands.executeCommand('git.showOutput');
+			}
 		}
 	};
 	context.subscriptions.push(

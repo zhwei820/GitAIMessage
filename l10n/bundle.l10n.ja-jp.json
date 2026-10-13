@@ -28,5 +28,6 @@
   "Select a repository to push": "プッシュするリポジトリを選択してください",
   "HEAD is detached; there is no branch to open.": "HEAD が detached 状態のため、開くブランチがありません。",
   "The repository has no remote.": "リポジトリにリモートが設定されていません。",
-  "Cannot derive a web URL from remote \"{0}\" ({1}).": "リモート「{0}」（{1}）から Web URL を取得できません。"
+  "Cannot derive a web URL from remote \"{0}\" ({1}).": "リモート「{0}」（{1}）から Web URL を取得できません。",
+  "Show Git Output": "Git の出力を表示"
 }
