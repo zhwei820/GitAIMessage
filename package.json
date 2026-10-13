@@ -32,6 +32,9 @@
     "onCommand:git-ai-message.deleteOpenAIApiKey"
   ],
   "main": "./dist/extension.js",
+  "bin": {
+    "aicommit": "./dist/cli.js"
+  },
   "l10n": "./l10n",
   "contributes": {
     "commands": [
