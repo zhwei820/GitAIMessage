@@ -10,6 +10,9 @@
     CC_DS_REASONER   deepseek-reasoner 映射到的 Claude 模型（默认 opus）
     CC_DS_CLAUDE     claude 可执行文件路径（默认 claude）
     CC_DS_TIMEOUT    单次请求超时秒数（默认 600）
+    CC_DS_VAULT_DIR  密码库目录（默认 ~/.cc-ds），首次启动生成 vault-token 供浏览器扩展填写
+
+/vault 只存浏览器扩展加密后的密文，主密码和明文都不经过本服务。
 
 示例:
     curl http://127.0.0.1:8000/chat/completions -H 'Content-Type: application/json' \
@@ -20,9 +23,12 @@
 """
 
 import argparse
+import hmac
 import json
 import os
 import shlex
+import secrets
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -40,6 +46,16 @@ MODEL_MAP = {
 }
 CLAUDE_ALIASES = ("sonnet", "opus", "haiku", "fable")
 
+VAULT_DIR = os.path.expanduser(os.environ.get("CC_DS_VAULT_DIR", "~/.cc-ds"))
+VAULT_FILE = os.path.join(VAULT_DIR, "vault.json")
+VAULT_TOKEN_FILE = os.path.join(VAULT_DIR, "vault-token")
+VAULT_BACKUP_DIR = os.path.join(VAULT_DIR, "backups")
+VAULT_BACKUP_KEEP = 30
+VAULT_MAX_BYTES = 5 << 20
+VAULT_HOSTS = ("127.0.0.1", "localhost")
+vault_lock = threading.Lock()
+VAULT_TOKEN = ""
+
 
 def map_model(name):
     """DeepSeek 名按 MODEL_MAP 映射；Claude 别名 / claude-* 透传；其余（gpt-4o 等客户端默认值）退回 deepseek-chat 的映射。"""
@@ -52,6 +68,47 @@ def map_model(name):
 
 # 空目录作为 cwd，避免 claude 读到当前目录的 CLAUDE.md / 项目配置
 WORKDIR = tempfile.mkdtemp(prefix="cc-ds-")
+
+
+def load_vault_token():
+    os.makedirs(VAULT_DIR, mode=0o700, exist_ok=True)
+    os.chmod(VAULT_DIR, 0o700)
+    try:
+        with open(VAULT_TOKEN_FILE) as f:
+            token = f.read().strip()
+        if token:
+            return token
+    except FileNotFoundError:
+        pass
+    token = secrets.token_urlsafe(32)
+    fd = os.open(VAULT_TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(token + "\n")
+    return token
+
+
+def read_vault():
+    try:
+        with open(VAULT_FILE) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {"rev": 0, "blob": None}
+
+
+def write_vault(rec):
+    """先备份旧版本再原子替换：扩展端的 bug 或误操作覆盖了密码库时还能从 backups/ 找回。"""
+    if os.path.exists(VAULT_FILE):
+        os.makedirs(VAULT_BACKUP_DIR, mode=0o700, exist_ok=True)
+        shutil.copy2(VAULT_FILE, os.path.join(VAULT_BACKUP_DIR, f"vault-{rec['rev'] - 1:06d}.json"))
+        for old in sorted(os.listdir(VAULT_BACKUP_DIR))[:-VAULT_BACKUP_KEEP]:
+            os.remove(os.path.join(VAULT_BACKUP_DIR, old))
+    tmp = VAULT_FILE + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(rec, f)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, VAULT_FILE)
 
 
 def log(msg):
@@ -205,12 +262,54 @@ class Handler(BaseHTTPRequestHandler):
     def send_error_json(self, err):
         self.send_json(err.status, {"error": {"message": err.message, "type": err.etype, "code": None}})
 
+    def check_vault_auth(self):
+        """Host 校验挡 DNS rebinding；Origin 只放行扩展（网页跨域请求带 X-Vault-Token 会触发预检，本服务不应答 OPTIONS）。"""
+        host = self.headers.get("Host", "").rsplit(":", 1)[0]
+        origin = self.headers.get("Origin")
+        if host not in VAULT_HOSTS or (origin and not origin.startswith("chrome-extension://")):
+            raise APIError(403, "forbidden", "permission_error")
+        if not hmac.compare_digest(self.headers.get("X-Vault-Token", "").encode(), VAULT_TOKEN.encode()):
+            raise APIError(401, "invalid vault token", "authentication_error")
+
+    def do_PUT(self):
+        try:
+            if self.path.rstrip("/") != "/vault":
+                raise APIError(404, "not found")
+            self.check_vault_auth()
+            length = int(self.headers.get("Content-Length", 0))
+            if length > VAULT_MAX_BYTES:
+                raise APIError(413, "vault too large")
+            try:
+                req = json.loads(self.rfile.read(length) or b"{}")
+            except json.JSONDecodeError:
+                raise APIError(400, "invalid JSON body")
+            blob, base = req.get("blob"), req.get("baseRev")
+            if not isinstance(blob, dict) or not isinstance(base, int):
+                raise APIError(400, "blob (object) and baseRev (int) are required")
+            with vault_lock:
+                cur = read_vault().get("rev", 0)
+                if base != cur:
+                    self.send_json(409, {"error": {"message": "vault changed on server", "type": "conflict"}, "rev": cur})
+                    return
+                rec = {"rev": cur + 1, "updatedAt": int(time.time()), "blob": blob}
+                write_vault(rec)
+            log(f"vault saved rev {rec['rev']}")
+            self.send_json(200, {"rev": rec["rev"]})
+        except APIError as e:
+            self.send_error_json(e)
+
     def check_auth(self):
         if API_KEY and self.headers.get("Authorization", "") != f"Bearer {API_KEY}":
             raise APIError(401, "Authentication Fails, invalid api key", "authentication_error")
 
     def do_GET(self):
         try:
+            if self.path.rstrip("/") == "/vault":
+                self.check_vault_auth()
+                with vault_lock:
+                    rec = read_vault()
+                self.send_json(200, rec)
+                return
             self.check_auth()
             if self.path.rstrip("/") in ("/models", "/v1/models"):
                 self.send_json(200, {"object": "list", "data": [
@@ -397,8 +496,11 @@ def main():
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args()
+    global VAULT_TOKEN
+    VAULT_TOKEN = load_vault_token()
     free_port(args.port)
     print(f"cc-ds listening on http://{args.host}:{args.port}  models={MODEL_MAP}", flush=True)
+    print(f"vault: {VAULT_FILE}  token: {VAULT_TOKEN_FILE}", flush=True)
     ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()
 
 
